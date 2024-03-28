@@ -1,0 +1,19 @@
+[package]
+name = "RenegadesPresale"
+version = "1.0.0"
+authors = []
+
+[addresses]
+rena_multisig = "0xa408eaf6de821be63ec47b5da16cbb5a3ab1af6a351d0bab7b6beddaf7802776"
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dependencies.Rena]
+local = "./packages/Rena"
+
+[dev-dependencies]
