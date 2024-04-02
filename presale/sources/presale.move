@@ -345,7 +345,7 @@ module rena_multisig::presale {
     public fun remaining_time(): u64 acquires Info {
         let info = borrow_global<Info>(@rena);
         if (info.is_completed) { 0 } else {
-            if (timestamp::now_seconds() > info.end) { 0 } else {
+        if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start) { 0 } else {
                 info.end - timestamp::now_seconds()
             }
         }
@@ -359,6 +359,7 @@ module rena_multisig::presale {
     
     #[view]
     /// Get the amount of funds raised
+    /// TODO: duplicate function, remove before mainnet deployment
     public fun raised_funds(): u64 acquires Info {
         coin::value<APT>(&borrow_global<Info>(@rena).raised_funds)
     }
@@ -383,6 +384,17 @@ module rena_multisig::presale {
         let signer_addr = signer::address_of(signer_ref);
         if (simple_map::contains_key(&info.contributors, &signer_addr)) {
             *simple_map::borrow(&info.contributors, &signer_addr)
+        } else {
+            0
+        }
+    }
+
+    #[view]
+    /// Get the contributed amount of the signer
+    public fun contributed_amount_from_address(contributor_addr: address): u64 acquires Info {
+        let info = borrow_global<Info>(@rena);
+        if (simple_map::contains_key(&info.contributors, &contributor_addr)) {
+            *simple_map::borrow(&info.contributors, &contributor_addr)
         } else {
             0
         }
