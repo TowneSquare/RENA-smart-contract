@@ -13,7 +13,8 @@ module rena_multisig::presale {
     use aptos_framework::event;
     use aptos_framework::timestamp;
     use aptos_std::math64;
-    use aptos_std::simple_map::{Self, SimpleMap};
+    use aptos_std::simple_map;
+    use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::type_info;
     use std::signer;
     use std::string::String;
@@ -54,7 +55,7 @@ module rena_multisig::presale {
         treasury: address, // Address to send funds to
         start: u64, // Start time of the presale
         end: u64, // End time of the presale
-        contributors: SimpleMap<address, u64>, // Map of contributors and their contributions
+        contributors: SmartTable<address, u64>, // Map of contributors and their contributions
         raised_funds: coin::Coin<APT>, // Amount of funds raised
         sale_supply: coin::Coin<RENA>, // Amount of RENA tokens for sale
         is_completed: bool
@@ -117,34 +118,18 @@ module rena_multisig::presale {
         assert!(timestamp::now_seconds() <= start, EINVALID_START_TIME);
         // ensure the end time is after the start time
         assert!(end > start, EINVALID_END_TIME);
-        // TODO: delete code block for mainnet
-        // ==================================================================
-        // check if Info resrouce already exists
-        if (exists<Info>(@rena)) {
-            // assert is not completed
-            let info = borrow_global_mut<Info>(@rena);
-            assert!(!info.is_completed, EPRESALE_ACTIVE);
-            // set the new values
-            info.treasury = treasury_addr;
-            info.start = start;
-            info.end = end;
-            info.contributors = simple_map::new();
-            info.is_completed = false;
-        } else {
-        // ==================================================================
-            move_to(
-                signer_ref,
-                Info {
-                    treasury: treasury_addr,
-                    start,
-                    end,
-                    contributors: simple_map::new(),
-                    raised_funds: coin::zero<APT>(),
-                    sale_supply: coin::zero<RENA>(),
-                    is_completed: false
-                }
-            );
-        };
+        move_to(
+            signer_ref,
+            Info {
+                treasury: treasury_addr,
+                start,
+                end,
+                contributors: smart_table::new(),
+                raised_funds: coin::zero<APT>(),
+                sale_supply: coin::zero<RENA>(),
+                is_completed: false
+            }
+        );
         // send the RENA tokens to the presale
         let sale_coins = coin::withdraw(signer_ref, sale_supply);
         let info = borrow_global_mut<Info>(@rena);
@@ -162,63 +147,64 @@ module rena_multisig::presale {
         )
     }
 
-    // TODO: delete function for mainnet
-    /// Initialize/schedule the presale
-    entry fun re_init(signer_ref: &signer, treasury_addr: address, start: u64, end: u64, sale_supply: u64) acquires Info {
-        let signer_addr = signer::address_of(signer_ref);
-        // assert signer is RENA treasury
-        assert!(signer_addr == @rena, ENOT_rena);
-        // assert there is enough RENA supply
-        assert!(sale_supply > 0, EINVALID_SUPPLY);
-        assert!(coin::balance<RENA>(signer_addr) >= sale_supply, EINSUFFICIENT_FUNDS);
-        // ensure the start time is in the future
-        assert!(timestamp::now_seconds() <= start, EINVALID_START_TIME);
-        // ensure the end time is after the start time
-        assert!(end > start, EINVALID_END_TIME);
-        // TODO: to remove after testing?
-        // ==================================================================
-        // check if Info resrouce already exists
-        if (exists<Info>(@rena)) {
-            // assert is not completed
-            let info = borrow_global_mut<Info>(@rena);
-            assert!(info.is_completed, EPRESALE_ACTIVE);
-            // set the new values
-            info.treasury = treasury_addr;
-            info.start = start;
-            info.end = end;
-            info.contributors = simple_map::new();
-            info.is_completed = false;
-        } else {
-        // ==================================================================
-            move_to(
-                signer_ref,
-                Info {
-                    treasury: treasury_addr,
-                    start,
-                    end,
-                    contributors: simple_map::new(),
-                    raised_funds: coin::zero<APT>(),
-                    sale_supply: coin::zero<RENA>(),
-                    is_completed: false
-                }
-            );
-        };
-        // send the RENA tokens to the presale
-        let sale_coins = coin::withdraw(signer_ref, sale_supply);
-        let info = borrow_global_mut<Info>(@rena);
-        coin::merge<RENA>(&mut info.sale_supply, sale_coins);
-        // emit event
-        event::emit(
-            PresaleInitialized {
-                treasury: treasury_addr,
-                start,
-                end,
-                sale_cointype: type_info::type_name<RENA>(),
-                funds_cointype: type_info::type_name<APT>(),
-                sale_supply,
-            }
-        )
-    }
+    // // TODO: delete function for mainnet
+    // /// Initialize/schedule the presale
+    // entry fun re_init(signer_ref: &signer, treasury_addr: address, start: u64, end: u64, sale_supply: u64) acquires Info {
+    //     let signer_addr = signer::address_of(signer_ref);
+    //     // assert signer is RENA treasury
+    //     assert!(signer_addr == @rena, ENOT_rena);
+    //     // assert there is enough RENA supply
+    //     assert!(sale_supply > 0, EINVALID_SUPPLY);
+    //     assert!(coin::balance<RENA>(signer_addr) >= sale_supply, EINSUFFICIENT_FUNDS);
+    //     // ensure the start time is in the future
+    //     assert!(timestamp::now_seconds() <= start, EINVALID_START_TIME);
+    //     // ensure the end time is after the start time
+    //     assert!(end > start, EINVALID_END_TIME);
+    //     // TODO: to remove after testing?
+    //     // ==================================================================
+    //     // check if Info resrouce already exists
+    //     if (exists<Info>(@rena)) {
+    //         // assert is not completed
+    //         let info = borrow_global_mut<Info>(@rena);
+    //         assert!(info.is_completed, EPRESALE_ACTIVE);
+    //         // set the new values
+    //         info.treasury = treasury_addr;
+    //         info.start = start;
+    //         info.end = end;
+    //         smart_table::destroy(info.contributors);
+    //         info.contributors = smart_table::new();
+    //         info.is_completed = false;
+    //     } else {
+    //     // ==================================================================
+    //         move_to(
+    //             signer_ref,
+    //             Info {
+    //                 treasury: treasury_addr,
+    //                 start,
+    //                 end,
+    //                 contributors: smart_table::new(),
+    //                 raised_funds: coin::zero<APT>(),
+    //                 sale_supply: coin::zero<RENA>(),
+    //                 is_completed: false
+    //             }
+    //         );
+    //     };
+    //     // send the RENA tokens to the presale
+    //     let sale_coins = coin::withdraw(signer_ref, sale_supply);
+    //     let info = borrow_global_mut<Info>(@rena);
+    //     coin::merge<RENA>(&mut info.sale_supply, sale_coins);
+    //     // emit event
+    //     event::emit(
+    //         PresaleInitialized {
+    //             treasury: treasury_addr,
+    //             start,
+    //             end,
+    //             sale_cointype: type_info::type_name<RENA>(),
+    //             funds_cointype: type_info::type_name<APT>(),
+    //             sale_supply,
+    //         }
+    //     )
+    // }
     
     /// Contribute to the presale
     entry fun contribute(signer_ref: &signer, amount: u64) acquires Info {
@@ -236,7 +222,7 @@ module rena_multisig::presale {
         // assert signer has enough funds
         assert!(coin::balance<APT>(signer_addr) >= amount, EINSUFFICIENT_FUNDS);
         // if signer is already a contributor, update their contribution, else add them to the contributors
-        if (simple_map::contains_key(&info.contributors, &signer_addr)) {
+        if (smart_table::contains(&info.contributors, signer_addr)) {
             update_contribution(signer_ref, amount);
         } else {
             let info_mut = borrow_global_mut<Info>(@rena);
@@ -244,7 +230,7 @@ module rena_multisig::presale {
             let contribution_coin = coin::withdraw(signer_ref, amount);
             coin::merge<APT>(&mut info_mut.raised_funds, contribution_coin);
             // add the signer to the contributors map
-            simple_map::add(&mut info_mut.contributors, signer_addr, amount);
+            smart_table::add(&mut info_mut.contributors, signer_addr, amount);
             // emit event
             event::emit( Contributed { contributor: signer_addr, amount } );
         }
@@ -263,7 +249,8 @@ module rena_multisig::presale {
         assert!(timestamp::now_seconds() > info.end, EPRESALE_ACTIVE);
         let raised_funds = coin::value<APT>(&info.raised_funds);
         let sale_supply = coin::value<RENA>(&info.sale_supply);
-        let (contributors_vec, contributions_vec) = simple_map::to_vec_pair(info.contributors);
+        let contributors_map = smart_table::to_simple_map(&info.contributors);
+        let (contributors_vec, contributions_vec) = simple_map::to_vec_pair(contributors_map);
         for (i in 0..vector::length(&contributors_vec)) {
             let contributor = vector::borrow(&contributors_vec, i);
             let contribution = vector::borrow(&contributions_vec, i);
@@ -311,9 +298,9 @@ module rena_multisig::presale {
         let contribution_coins = coin::withdraw(signer_ref, amount);
         coin::merge<APT>(&mut info_mut.raised_funds, contribution_coins);
         // update the value corresponding to the signer key in the contributors map
-        let old_amount = simple_map::borrow(&info_mut.contributors, &signer_addr);
+        let old_amount = smart_table::borrow(&info_mut.contributors, signer_addr);
         let new_amount = *old_amount + amount;
-        simple_map::upsert(&mut info_mut.contributors, signer_addr, *old_amount + amount);
+        smart_table::upsert(&mut info_mut.contributors, signer_addr, *old_amount + amount);
         // emit event
         event::emit( ContributionUpdated { contributor: signer_addr, updated_amount: new_amount } );
     }
@@ -367,8 +354,8 @@ module rena_multisig::presale {
     #[view]
     /// Get the total number of contributors
     public fun total_contributors(): u64 acquires Info {
-        let vec = simple_map::keys(&borrow_global<Info>(@rena).contributors);
-        vector::length(&vec)
+        let info = borrow_global<Info>(@rena);
+        vector::length(&simple_map::keys(&smart_table::to_simple_map(&info.contributors)))
     }
 
     #[view]
@@ -379,11 +366,12 @@ module rena_multisig::presale {
     
     #[view]
     /// Get the contributed amount of the signer
+    /// TODO: should get address as input
     public fun contributed_amount(signer_ref: &signer): u64 acquires Info {
         let info = borrow_global<Info>(@rena);
         let signer_addr = signer::address_of(signer_ref);
-        if (simple_map::contains_key(&info.contributors, &signer_addr)) {
-            *simple_map::borrow(&info.contributors, &signer_addr)
+        if (smart_table::contains(&info.contributors, signer_addr)) {
+            *smart_table::borrow(&info.contributors, signer_addr)
         } else {
             0
         }
@@ -393,8 +381,8 @@ module rena_multisig::presale {
     /// Get the contributed amount of the signer
     public fun contributed_amount_from_address(contributor_addr: address): u64 acquires Info {
         let info = borrow_global<Info>(@rena);
-        if (simple_map::contains_key(&info.contributors, &contributor_addr)) {
-            *simple_map::borrow(&info.contributors, &contributor_addr)
+        if (smart_table::contains(&info.contributors, contributor_addr)) {
+            *smart_table::borrow(&info.contributors, contributor_addr)
         } else {
             0
         }
