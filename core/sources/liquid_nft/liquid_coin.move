@@ -142,17 +142,18 @@ module rena::liquid_coin {
     public(friend) fun liquify<LiquidCoin>(
         caller: &signer,
         metadata: Object<LiquidCoinMetadata<LiquidCoin>>,
-        tokens: vector<Object<TokenObject>>
+        tokens_addr: vector<address>
     ) acquires LiquidCoinMetadata {
         let caller_address = signer::address_of(caller);
-        let liquidify_amount = one_nft_in_coins<LiquidCoin>() * vector::length(&tokens);
+        let liquidify_amount = one_nft_in_coins<LiquidCoin>() * vector::length(&tokens_addr);
         let object_address = object_address(&metadata);
         let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
 
         // Check ownership on all tokens and that they're in the collection
-        vector::for_each_ref(&tokens, |token| {
-            assert!(is_owner(*token, caller_address), E_NOT_OWNER_OF_TOKEN);
-            assert!(token::collection_object(*token) == liquid_token.collection, E_NOT_IN_COLLECTION);
+        vector::for_each_ref(&tokens_addr, |token| {
+            let token_obj = object::address_to_object<TokenObject>(*token);
+            assert!(is_owner(token_obj, caller_address), E_NOT_OWNER_OF_TOKEN);
+            assert!(token::collection_object(token_obj) == liquid_token.collection, E_NOT_IN_COLLECTION);
         });
 
         // Ensure there's enough liquid tokens to send out
@@ -162,9 +163,10 @@ module rena::liquid_coin {
         );
 
         // Take tokens add them to the pool
-        vector::for_each(tokens, |token| {
-            object::transfer(caller, token, object_address);
-            smart_vector::push_back(&mut liquid_token.token_pool, token);
+        vector::for_each(tokens_addr, |token| {
+            let token_obj = object::address_to_object<TokenObject>(token);
+            object::transfer(caller, token_obj, object_address);
+            smart_vector::push_back(&mut liquid_token.token_pool, token_obj);
         });
 
         // Return to caller liquidity coins
