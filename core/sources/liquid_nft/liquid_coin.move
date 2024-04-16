@@ -120,8 +120,7 @@ module rena::liquid_coin {
 
         // Transfer tokens
         let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
-        // num_tokens to randomly pick from must be collection supply
-        let num_tokens = *option::borrow(&collection::count(liquid_token.collection));
+        let num_tokens = smart_vector::length(&liquid_token.token_pool);
         let tokens = vector[];
         for (i in 0..count) {
             // Transfer random token to caller

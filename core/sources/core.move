@@ -291,7 +291,7 @@ module rena::core {
         prefix: String,
         suffix: String,
         royalty: Option<royalty::Royalty>,
-        folder_uri: String // e.g: https://bafybeibrsuxj52chkf26vveo3iofjfrbfczaw3f2k3ojqk4l5lscgzcyiy.ipfs.nftstorage.link
+        folder_uri: String // e.g: https://bafybeigha5ts6nn3d362nqb2fsxkyomq5u2lei2a3u32uwz7qz7jy4gg4i.ipfs.nftstorage.link
     ): (vector<Object<TokenV2>>, vector<address>){
         let tokens = vector::empty<Object<TokenV2>>();
         let tokens_addr = vector::empty();
