@@ -223,7 +223,7 @@ module rena::common {
         let constructor = aptos_token_objects::collection::create_fixed_collection(
             creator,
             string::utf8(b""),
-            5,
+            500,
             string::utf8(COLLECTION_NAME),
             option::none(),
             string::utf8(b""),
@@ -236,13 +236,13 @@ module rena::common {
     public(friend) fun create_token_objects(
         creator: &signer,
         collector: &signer
-    ): vector<Object<aptos_token_objects::token::Token>> {
+    ): vector<address> {
         let tokens = vector[];
         let collection_name = string::utf8(COLLECTION_NAME);
         let collector_address = signer::address_of(collector);
 
         // Create 5 tokens with different names
-        for (i in 0..5) {
+        for (i in 0..500) {
             let name = token_name(i);
             let constructor = aptos_token_objects::token::create(
                 creator,
@@ -253,8 +253,9 @@ module rena::common {
                 string::utf8(b""),
             );
 
-            let token = object::object_from_constructor_ref(&constructor);
-            vector::push_back(&mut tokens, token);
+            let token = object::object_from_constructor_ref<aptos_token_objects::token::Token>(&constructor);
+            let token_addr = object::address_from_constructor_ref(&constructor);
+            vector::push_back(&mut tokens, token_addr);
 
             // Transfer tokens to the collector
             object::transfer(creator, token, collector_address);

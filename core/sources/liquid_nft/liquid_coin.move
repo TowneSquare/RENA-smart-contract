@@ -120,11 +120,17 @@ module rena::liquid_coin {
 
         // Transfer tokens
         let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
-        let num_tokens = smart_vector::length(&liquid_token.token_pool);
+        // num_tokens to randomly pick from must be collection supply
+        let num_tokens = *option::borrow(&collection::count(liquid_token.collection));
         let tokens = vector[];
         for (i in 0..count) {
             // Transfer random token to caller
             let random_nft_index = pseudorandom_u64(num_tokens);
+            // if that nft doesn't exist, fetch for another one
+            let maybe_token = *smart_vector::borrow(&liquid_token.token_pool, random_nft_index);
+            if (!object::is_owner(maybe_token, object_address)) {
+                random_nft_index = pseudorandom_u64(num_tokens);
+            };
             let token = smart_vector::swap_remove(&mut liquid_token.token_pool, random_nft_index);
             let object_signer = object::generate_signer_for_extending(&liquid_token.extend_ref);
             vector::push_back(&mut tokens, object::object_address(&token));
@@ -175,6 +181,8 @@ module rena::liquid_coin {
     }
 
     #[test_only]
+    use std::debug;
+    #[test_only]
     use std::string;
     #[test_only]
     use rena::common::{setup_test, create_token_objects_collection, create_token_objects};
@@ -207,15 +215,19 @@ module rena::liquid_coin {
 
         // Liquify some tokens
         assert!(!coin::is_account_registered<TestToken>(collector_address), 0);
-        liquify(collector, metadata_object, vector[*vector::borrow(&tokens, 0), *vector::borrow(&tokens, 2)]);
+        for (i in 0..500) {
+            liquify(collector, metadata_object, vector[*vector::borrow(&tokens, i)]);
+        };
+        // liquify(collector, metadata_object, vector[*vector::borrow(&tokens, 0), *vector::borrow(&tokens, 499)]);
 
         // The tokens should now be in the contract
-        assert!(coin::balance<TestToken>(collector_address) == 2 * one_nft_in_coins<TestToken>(), 2);
+        debug::print<u64>(&coin::balance<TestToken>(collector_address));
+        assert!(coin::balance<TestToken>(collector_address) == 500 * one_nft_in_coins<TestToken>(), 2);
         let metadata = borrow_global<LiquidCoinMetadata<TestToken>>(object_address);
-        assert!(2 == smart_vector::length(&metadata.token_pool), 3);
+        assert!(500 == smart_vector::length(&metadata.token_pool), 3);
 
         // Claim the NFTs back
-        claim(collector, metadata_object, 2);
+        claim(collector, metadata_object, 500);
 
         // Tokens should be back with the collector
         assert!(coin::balance<TestToken>(collector_address) == 0, 4);
