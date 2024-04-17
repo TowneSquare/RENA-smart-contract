@@ -88,12 +88,6 @@ module rena::core {
 
     #[event]
     struct Liquified has drop, store { 
-        tokens: vector<Object<TokenV2>>,
-        coins_received: u64
-    }
-
-    #[event]
-    struct LiquifiedWithAddress has drop, store { 
         tokens: vector<address>,
         coins_received: u64
     }
@@ -239,35 +233,9 @@ module rena::core {
         event::emit(Claimed { tokens, coins_deducted: count });
     }
 
-    /// Liquify an X number of liquid NFT to get an X number of liquid coins
-    entry fun liquify<LiquidCoin>(
-        signer_ref: &signer,
-        metadata: address,
-        tokens: vector<Object<TokenV2>>
-    ) acquires Fee {
-        retrieve_fee(signer_ref);
-        let metadata_obj = object::address_to_object<LiquidCoinMetadata<LiquidCoin>>(metadata);
-        // liquid_coin::liquify<LiquidCoin>(signer_ref, metadata_obj, tokens);
-        // emit event
-        event::emit(Liquified { tokens, coins_received: vector::length(&tokens) });
-    }
 
-    /// TODO: delete this when depolying on mainnet
     /// Liquify an X number of Renegade NFT to get an X number of Renegade coins
     entry fun liquify_rena(
-        signer_ref: &signer,
-        metadata: address,
-        tokens: vector<Object<TokenV2>>
-    ) acquires Fee {
-        retrieve_fee(signer_ref);
-        let metadata_obj = object::address_to_object<LiquidCoinMetadata<RenegadeCoin>>(metadata);
-        // liquid_coin::liquify<RenegadeCoin>(signer_ref, metadata_obj, tokens);
-        // emit event
-        event::emit(Liquified { tokens, coins_received: vector::length(&tokens) });
-    }
-
-    /// Liquify an X number of Renegade NFT to get an X number of Renegade coins
-    entry fun liquify_rena_coin_from_nft_address(
         signer_ref: &signer,
         metadata: address,
         tokens: vector<address>
@@ -276,7 +244,7 @@ module rena::core {
         let metadata_obj = object::address_to_object<LiquidCoinMetadata<RenegadeCoin>>(metadata);
         liquid_coin::liquify<RenegadeCoin>(signer_ref, metadata_obj, tokens);
         // emit event
-        event::emit(LiquifiedWithAddress { tokens, coins_received: vector::length(&tokens) });
+        event::emit(Liquified { tokens, coins_received: vector::length(&tokens) });
     }
 
     // -------
