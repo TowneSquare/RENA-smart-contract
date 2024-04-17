@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-rena_multisig = "0xa408eaf6de821be63ec47b5da16cbb5a3ab1af6a351d0bab7b6beddaf7802776"
+rena_multisig = "30604f2c399982920606bb2074d9721191c07e24549405da04a3f49ce4457186"
 
 [dev-addresses]
 
