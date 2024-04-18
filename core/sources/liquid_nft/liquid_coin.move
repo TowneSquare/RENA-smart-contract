@@ -120,21 +120,21 @@ module rena::liquid_coin {
 
         // Transfer tokens
         let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
-        let num_tokens = smart_vector::length(&liquid_token.token_pool);
         let tokens = vector[];
         for (i in 0..count) {
+            let num_tokens = smart_vector::length(&liquid_token.token_pool);
             // Transfer random token to caller
             let random_nft_index = pseudorandom_u64(num_tokens);
-            // if that nft doesn't exist, fetch for another one
-            let maybe_token = *smart_vector::borrow(&liquid_token.token_pool, random_nft_index);
-            if (!object::is_owner(maybe_token, object_address)) {
-                random_nft_index = pseudorandom_u64(num_tokens);
-            };
+            // // if that nft doesn't exist, fetch for another one
+            // let maybe_token = *smart_vector::borrow(&liquid_token.token_pool, random_nft_index);
+            // // if (!object::is_owner(maybe_token, object_address)) {
+            // //     random_nft_index = pseudorandom_u64(num_tokens);
+            // // };
             let token = smart_vector::swap_remove(&mut liquid_token.token_pool, random_nft_index);
             let object_signer = object::generate_signer_for_extending(&liquid_token.extend_ref);
             vector::push_back(&mut tokens, object::object_address(&token));
             object::transfer(&object_signer, token, caller_address);
-            num_tokens = num_tokens - 1;
+            // num_tokens = num_tokens - 1;
         };
 
         tokens
@@ -281,7 +281,7 @@ module rena::liquid_coin {
             string::utf8(ASSET_SYMBOL),
             8,
         );
-        let object_address = object_address(&metadata);
+        // let object_address = object_address(&metadata);
 
         metadata
     }
