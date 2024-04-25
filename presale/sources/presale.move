@@ -15,6 +15,7 @@ module rena_multisig::presale {
     use aptos_std::math64;
     use aptos_std::simple_map;
     use aptos_std::smart_table::{Self, SmartTable};
+    use aptos_std::smart_vector::{Self, SmartVector};
     use aptos_std::type_info;
     use std::signer;
     use std::string::String;
@@ -30,7 +31,7 @@ module rena_multisig::presale {
     // ------
 
     /// The signer is not the RENA treasury
-    const ENOT_rena: u64 = 1;
+    const ENOT_RENA: u64 = 1;
     /// The supply is invalid
     const EINVALID_SUPPLY: u64 = 2;
     /// The start time is invalid
@@ -45,6 +46,10 @@ module rena_multisig::presale {
     const EINSUFFICIENT_FUNDS: u64 = 7;
     /// The minimum contribution amount is 1 APT
     const EMIN_CONTRIBUTION_AMOUNT_IS_1_APT: u64 = 8;
+    /// The signer is not in the whitelist
+    const ESIGNER_NOT_IN_WHITELIST: u64 = 9;
+    /// The type must be either Info or WhitelistInfo
+    const EUNKNOWN_TYPE: u64 = 10;
 
     // ---------
     // Resources
@@ -55,6 +60,18 @@ module rena_multisig::presale {
         treasury: address, // Address to send funds to
         start: u64, // Start time of the presale
         end: u64, // End time of the presale
+        contributors: SmartTable<address, u64>, // Map of contributors and their contributions
+        raised_funds: coin::Coin<APT>, // Amount of funds raised
+        sale_supply: coin::Coin<RENA>, // Amount of RENA tokens for sale
+        is_completed: bool
+    }
+
+    /// Global storage for the whitelisted presale
+    struct WhitelistInfo has key {
+        treasury: address, // Address to send funds to
+        start: u64, // Start time of the presale
+        end: u64, // End time of the presale
+        whitelist: SmartVector<address>, // Whitelisted addresses
         contributors: SmartTable<address, u64>, // Map of contributors and their contributions
         raised_funds: coin::Coin<APT>, // Amount of funds raised
         sale_supply: coin::Coin<RENA>, // Amount of RENA tokens for sale
@@ -72,7 +89,8 @@ module rena_multisig::presale {
         end: u64,
         sale_cointype: String,
         funds_cointype: String,
-        sale_supply: u64
+        sale_supply: u64,
+        is_whitelisted: bool
     }
 
     #[event]
@@ -100,17 +118,32 @@ module rena_multisig::presale {
         raised_funds: u64
     }
 
+    #[event]
+    struct AddedToWhitelist has drop, store {
+        wallets: vector<address>
+    }
+
+    #[event]
+    struct RemovedFromWhitelist has drop, store {
+        wallets: vector<address>
+    }
+
     // ---------------
     // Entry Functions
     // ---------------
 
-    // TODO: delete tag for mainnet
-    #[deprecated]
     /// Initialize/schedule the presale
-    entry fun init(signer_ref: &signer, treasury_addr: address, start: u64, end: u64, sale_supply: u64) acquires Info {
+    entry fun init<T>(
+        signer_ref: &signer, 
+        treasury_addr: address, 
+        start: u64, 
+        end: u64, 
+        sale_supply: u64,
+        whitelist: vector<address>  // Ignore if presale is not whitelisted
+    ) acquires Info, WhitelistInfo {
         let signer_addr = signer::address_of(signer_ref);
         // assert signer is RENA treasury
-        assert!(signer_addr == @rena, ENOT_rena);
+        assert!(signer_addr == @rena, ENOT_RENA);
         // assert there is enough RENA supply
         assert!(sale_supply > 0, EINVALID_SUPPLY);
         assert!(coin::balance<RENA>(signer_addr) >= sale_supply, EINSUFFICIENT_FUNDS);
@@ -118,22 +151,51 @@ module rena_multisig::presale {
         assert!(timestamp::now_seconds() <= start, EINVALID_START_TIME);
         // ensure the end time is after the start time
         assert!(end > start, EINVALID_END_TIME);
-        move_to(
-            signer_ref,
-            Info {
-                treasury: treasury_addr,
-                start,
-                end,
-                contributors: smart_table::new(),
-                raised_funds: coin::zero<APT>(),
-                sale_supply: coin::zero<RENA>(),
-                is_completed: false
-            }
-        );
-        // send the RENA tokens to the presale
-        let sale_coins = coin::withdraw(signer_ref, sale_supply);
-        let info = borrow_global_mut<Info>(@rena);
-        coin::merge<RENA>(&mut info.sale_supply, sale_coins);
+        let is_whitelisted = if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            move_to(
+                signer_ref,
+                Info {
+                    treasury: treasury_addr,
+                    start,
+                    end,
+                    contributors: smart_table::new(),
+                    raised_funds: coin::zero<APT>(),
+                    sale_supply: coin::zero<RENA>(),
+                    is_completed: false
+                }
+            );
+            // send the RENA tokens to the presale
+            let sale_coins = coin::withdraw(signer_ref, sale_supply);
+            let info = borrow_global_mut<Info>(@rena);
+            coin::merge<RENA>(&mut info.sale_supply, sale_coins);
+            false
+
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            // get the whitelist vector and push it to the whitelist smart vector
+            let whitelist_to_smart_vec = smart_vector::new<address>();
+            for (i in 0..vector::length<address>(&whitelist)) {
+                smart_vector::push_back(&mut whitelist_to_smart_vec, *vector::borrow(&whitelist, i));
+            };
+            move_to(
+                signer_ref,
+                WhitelistInfo {
+                    treasury: treasury_addr,
+                    start,
+                    end,
+                    whitelist: whitelist_to_smart_vec,
+                    contributors: smart_table::new(),
+                    raised_funds: coin::zero<APT>(),
+                    sale_supply: coin::zero<RENA>(),
+                    is_completed: false
+                }
+            );
+            // send the RENA tokens to the presale
+            let sale_coins = coin::withdraw(signer_ref, sale_supply);
+            let info = borrow_global_mut<WhitelistInfo>(@rena);
+            coin::merge<RENA>(&mut info.sale_supply, sale_coins);
+            true
+
+        } else { abort EUNKNOWN_TYPE };
         // emit event
         event::emit(
             PresaleInitialized {
@@ -143,8 +205,51 @@ module rena_multisig::presale {
                 sale_cointype: type_info::type_name<RENA>(),
                 funds_cointype: type_info::type_name<APT>(),
                 sale_supply,
+                is_whitelisted
             }
         )
+    }
+
+    /// add to whitelist
+    entry fun add_to_whitelist(signer_ref: &signer, wallets: vector<address>) acquires WhitelistInfo {
+        // assert!(exists<WhitelistInfo>(@rena), EWHITELIST_NOT_INITIALIZED);
+        let signer_addr = signer::address_of(signer_ref);
+        let info = borrow_global_mut<WhitelistInfo>(@rena);
+        assert!(signer_addr == @rena, ENOT_RENA);
+        assert!(timestamp::now_seconds() <= info.start, EINVALID_START_TIME);
+        assert!(timestamp::now_seconds() <= info.end, EINVALID_END_TIME);
+
+        let added_wallets = vector::empty<address>();
+        vector::for_each(wallets, |wallet_addr| {
+            // add only addresses that are not in the whitelist
+            if (!smart_vector::contains(&info.whitelist, &wallet_addr)) {
+                smart_vector::push_back(&mut info.whitelist, wallet_addr);
+                vector::push_back(&mut added_wallets, wallet_addr);
+            }
+        });
+
+        // emit event
+        event::emit( AddedToWhitelist { wallets: added_wallets } );
+    }
+
+    /// remove from whitelist
+    entry fun remove_from_whitelist(signer_ref: &signer, wallets: vector<address>) acquires WhitelistInfo {
+        // assert!(exists<WhitelistInfo>(@rena), EWHITELIST_NOT_INITIALIZED);
+        let signer_addr = signer::address_of(signer_ref);
+        let info = borrow_global_mut<WhitelistInfo>(@rena);
+        assert!(signer_addr == @rena, ENOT_RENA);
+        assert!(timestamp::now_seconds() <= info.start, EINVALID_START_TIME);
+        assert!(timestamp::now_seconds() <= info.end, EINVALID_END_TIME);
+
+        let removed_wallets = vector::empty<address>();
+        vector::for_each(wallets, |wallet_addr| {
+            if (smart_vector::contains(&info.whitelist, &wallet_addr)) {
+                vector::push_back(&mut removed_wallets, smart_vector::pop_back(&mut info.whitelist));
+            }
+        });
+
+        // emit event
+        event::emit( RemovedFromWhitelist { wallets: removed_wallets } );
     }
 
     // // TODO: delete function for mainnet
@@ -152,7 +257,7 @@ module rena_multisig::presale {
     // entry fun re_init(signer_ref: &signer, treasury_addr: address, start: u64, end: u64, sale_supply: u64) acquires Info {
     //     let signer_addr = signer::address_of(signer_ref);
     //     // assert signer is RENA treasury
-    //     assert!(signer_addr == @rena, ENOT_rena);
+    //     assert!(signer_addr == @rena, ENOT_RENA);
     //     // assert there is enough RENA supply
     //     assert!(sale_supply > 0, EINVALID_SUPPLY);
     //     assert!(coin::balance<RENA>(signer_addr) >= sale_supply, EINSUFFICIENT_FUNDS);
@@ -207,64 +312,120 @@ module rena_multisig::presale {
     // }
     
     /// Contribute to the presale
-    entry fun contribute(signer_ref: &signer, amount: u64) acquires Info {
+    entry fun contribute<T>(signer_ref: &signer, amount: u64) acquires Info, WhitelistInfo {
         // assert amount is greater than 1 APT
         assert!(amount >= 1 * math64::pow(10, 8), EMIN_CONTRIBUTION_AMOUNT_IS_1_APT);
         let signer_addr = signer::address_of(signer_ref);
-        // ensure the presale is not completed
-        let info = borrow_global<Info>(@rena);
-        assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
-        // ensure the presale is active
-        assert!(
-            info.start <= timestamp::now_seconds() && timestamp::now_seconds() <= info.end,
-            EPRESALE_NOT_ACTIVE
-        );
-        // assert signer has enough funds
-        assert!(coin::balance<APT>(signer_addr) >= amount, EINSUFFICIENT_FUNDS);
-        // if signer is already a contributor, update their contribution, else add them to the contributors
-        if (smart_table::contains(&info.contributors, signer_addr)) {
-            update_contribution(signer_ref, amount);
-        } else {
-            let info_mut = borrow_global_mut<Info>(@rena);
-            // send the funds to raised_funds storage
-            let contribution_coin = coin::withdraw(signer_ref, amount);
-            coin::merge<APT>(&mut info_mut.raised_funds, contribution_coin);
-            // add the signer to the contributors map
-            smart_table::add(&mut info_mut.contributors, signer_addr, amount);
-            // emit event
-            event::emit( Contributed { contributor: signer_addr, amount } );
-        }
-
+        if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            // ensure the presale is not completed
+            let info = borrow_global<Info>(@rena);
+            assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
+            // ensure the presale is active
+            assert!(
+                info.start <= timestamp::now_seconds() && timestamp::now_seconds() <= info.end,
+                EPRESALE_NOT_ACTIVE
+            );
+            // assert signer has enough funds
+            assert!(coin::balance<APT>(signer_addr) >= amount, EINSUFFICIENT_FUNDS);
+            // if signer is already a contributor, update their contribution, else add them to the contributors
+            if (smart_table::contains(&info.contributors, signer_addr)) {
+                update_contribution(signer_ref, amount);
+            } else {
+                let info_mut = borrow_global_mut<Info>(@rena);
+                // send the funds to raised_funds storage
+                let contribution_coin = coin::withdraw(signer_ref, amount);
+                coin::merge<APT>(&mut info_mut.raised_funds, contribution_coin);
+                // add the signer to the contributors map
+                smart_table::add(&mut info_mut.contributors, signer_addr, amount);
+            }
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            // ensure the presale is not completed
+            let info = borrow_global<WhitelistInfo>(@rena);
+            assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
+            // ensure the presale is active
+            assert!(
+                info.start <= timestamp::now_seconds() && timestamp::now_seconds() <= info.end,
+                EPRESALE_NOT_ACTIVE
+            );
+            // assert signer is in the whitelist
+            assert!(smart_vector::contains(&info.whitelist, &signer_addr), ESIGNER_NOT_IN_WHITELIST);
+            // assert signer has enough funds
+            assert!(coin::balance<APT>(signer_addr) >= amount, EINSUFFICIENT_FUNDS);
+            // if signer is already a contributor, update their contribution, else add them to the contributors
+            if (smart_table::contains(&info.contributors, signer_addr)) {
+                update_contribution(signer_ref, amount);
+            } else {
+                let info_mut = borrow_global_mut<WhitelistInfo>(@rena);
+                // send the funds to raised_funds storage
+                let contribution_coin = coin::withdraw(signer_ref, amount);
+                coin::merge<APT>(&mut info_mut.raised_funds, contribution_coin);
+                // add the signer to the contributors map
+                smart_table::add(&mut info_mut.contributors, signer_addr, amount);   
+            }
+        } else { abort EUNKNOWN_TYPE };
+        // emit event
+        event::emit( Contributed { contributor: signer_addr, amount } );
     }
 
     /// Finalize the presale
-    entry fun finalize(signer_ref: &signer) acquires Info {
+    entry fun finalize<T>(signer_ref: &signer) acquires Info, WhitelistInfo {
         // assert signer is RENA treasury
-        assert!(signer::address_of(signer_ref) == @rena, ENOT_rena);
-        let info = borrow_global<Info>(@rena);
-        let treasury_addr = info.treasury;
-        // ensure the presale is not already completed
-        assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
-        // ensure the presale is over
-        assert!(timestamp::now_seconds() > info.end, EPRESALE_ACTIVE);
-        let raised_funds = coin::value<APT>(&info.raised_funds);
-        let sale_supply = coin::value<RENA>(&info.sale_supply);
-        let contributors_map = smart_table::to_simple_map(&info.contributors);
-        let (contributors_vec, contributions_vec) = simple_map::to_vec_pair(contributors_map);
-        for (i in 0..vector::length(&contributors_vec)) {
-            let contributor = vector::borrow(&contributors_vec, i);
-            let contribution = vector::borrow(&contributions_vec, i);
-            let share_amount = calculate_share(*contribution, sale_supply, raised_funds);
-            distribute_share(*contributor, share_amount);
-            // emit event
-            event::emit( ShareDistributed { cointype: type_info::type_name<RENA>(), contributor: *contributor, amount: share_amount } );
-        };
-        // send the raised funds to the treasury
-        let info_mut = borrow_global_mut<Info>(@rena);
-        let raised_funds_coins = coin::extract<APT>(&mut info_mut.raised_funds, raised_funds);
-        aptos_account::deposit_coins(treasury_addr, raised_funds_coins);
-        // mark the presale as completed
-        info_mut.is_completed = true;
+        assert!(signer::address_of(signer_ref) == @rena, ENOT_RENA);
+        let (treasury_addr, raised_funds) = if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info = borrow_global<Info>(@rena);
+            let treasury_addr = info.treasury;
+            // ensure the presale is not already completed
+            assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
+            // ensure the presale is over
+            assert!(timestamp::now_seconds() > info.end, EPRESALE_ACTIVE);
+            let raised_funds = coin::value<APT>(&info.raised_funds);
+            let sale_supply = coin::value<RENA>(&info.sale_supply);
+            let contributors_map = smart_table::to_simple_map(&info.contributors);
+            let (contributors_vec, contributions_vec) = simple_map::to_vec_pair(contributors_map);
+            for (i in 0..vector::length(&contributors_vec)) {
+                let contributor = vector::borrow(&contributors_vec, i);
+                let contribution = vector::borrow(&contributions_vec, i);
+                let share_amount = calculate_share(*contribution, sale_supply, raised_funds);
+                distribute_share(*contributor, share_amount);
+                // emit event
+                event::emit( ShareDistributed { cointype: type_info::type_name<RENA>(), contributor: *contributor, amount: share_amount } );
+            };
+            // send the raised funds to the treasury
+            let info_mut = borrow_global_mut<Info>(@rena);
+            let raised_funds_coins = coin::extract<APT>(&mut info_mut.raised_funds, raised_funds);
+            aptos_account::deposit_coins(treasury_addr, raised_funds_coins);
+            // mark the presale as completed
+            info_mut.is_completed = true;
+            (treasury_addr, raised_funds)
+
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info = borrow_global<WhitelistInfo>(@rena);
+            let treasury_addr = info.treasury;
+            // ensure the presale is not already completed
+            assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
+            // ensure the presale is over
+            assert!(timestamp::now_seconds() > info.end, EPRESALE_ACTIVE);
+            let raised_funds = coin::value<APT>(&info.raised_funds);
+            let sale_supply = coin::value<RENA>(&info.sale_supply);
+            let contributors_map = smart_table::to_simple_map(&info.contributors);
+            let (contributors_vec, contributions_vec) = simple_map::to_vec_pair(contributors_map);
+            for (i in 0..vector::length(&contributors_vec)) {
+                let contributor = vector::borrow(&contributors_vec, i);
+                let contribution = vector::borrow(&contributions_vec, i);
+                let share_amount = calculate_share(*contribution, sale_supply, raised_funds);
+                distribute_share(*contributor, share_amount);
+                // emit event
+                event::emit( ShareDistributed { cointype: type_info::type_name<RENA>(), contributor: *contributor, amount: share_amount } );
+            };
+            // send the raised funds to the treasury
+            let info_mut = borrow_global_mut<WhitelistInfo>(@rena);
+            let raised_funds_coins = coin::extract<APT>(&mut info_mut.raised_funds, raised_funds);
+            aptos_account::deposit_coins(treasury_addr, raised_funds_coins);
+            // mark the presale as completed
+            info_mut.is_completed = true;
+            (treasury_addr, raised_funds)
+
+        } else { abort EUNKNOWN_TYPE };
         // emit event
         event::emit( PresaleFinalized { treasury: treasury_addr, raised_funds } );
     }
@@ -344,12 +505,6 @@ module rena_multisig::presale {
         borrow_global<Info>(@rena).is_completed
     }
     
-    #[view]
-    /// Get the amount of funds raised
-    /// TODO: duplicate function, remove before mainnet deployment
-    public fun raised_funds(): u64 acquires Info {
-        coin::value<APT>(&borrow_global<Info>(@rena).raised_funds)
-    }
     
     #[view]
     /// Get the total number of contributors
@@ -366,12 +521,10 @@ module rena_multisig::presale {
     
     #[view]
     /// Get the contributed amount of the signer
-    /// TODO: should get address as input
-    public fun contributed_amount(signer_ref: &signer): u64 acquires Info {
+    public fun contributed_amount(addr: address): u64 acquires Info {
         let info = borrow_global<Info>(@rena);
-        let signer_addr = signer::address_of(signer_ref);
-        if (smart_table::contains(&info.contributors, signer_addr)) {
-            *smart_table::borrow(&info.contributors, signer_addr)
+        if (smart_table::contains(&info.contributors, addr)) {
+            *smart_table::borrow(&info.contributors, addr)
         } else {
             0
         }
@@ -386,6 +539,13 @@ module rena_multisig::presale {
         } else {
             0
         }
+    }
+
+    #[view]
+    /// Check if an address is whitelisted
+    public fun is_whitelisted(addr: address): bool acquires WhitelistInfo {
+        let info = borrow_global<WhitelistInfo>(@rena);
+        smart_vector::contains(&info.whitelist, &addr)
     }
 
     // ----------
