@@ -316,7 +316,7 @@ module rena_multisig::presale {
         // assert amount is greater than 1 APT
         assert!(amount >= 1 * math64::pow(10, 8), EMIN_CONTRIBUTION_AMOUNT_IS_1_APT);
         let signer_addr = signer::address_of(signer_ref);
-        if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
             // ensure the presale is not completed
             let info = borrow_global<Info>(@rena);
             assert!(!info.is_completed, EPRESALE_NOT_ACTIVE);
@@ -371,7 +371,7 @@ module rena_multisig::presale {
     entry fun finalize<T>(signer_ref: &signer) acquires Info, WhitelistInfo {
         // assert signer is RENA treasury
         assert!(signer::address_of(signer_ref) == @rena, ENOT_RENA);
-        let (treasury_addr, raised_funds) = if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+        let (treasury_addr, raised_funds) = if (type_info::type_of<T>() == type_info::type_of<Info>()) {
             let info = borrow_global<Info>(@rena);
             let treasury_addr = info.treasury;
             // ensure the presale is not already completed
@@ -386,7 +386,7 @@ module rena_multisig::presale {
                 let contributor = vector::borrow(&contributors_vec, i);
                 let contribution = vector::borrow(&contributions_vec, i);
                 let share_amount = calculate_share(*contribution, sale_supply, raised_funds);
-                distribute_share(*contributor, share_amount);
+                distribute_share<Info>(*contributor, share_amount);
                 // emit event
                 event::emit( ShareDistributed { cointype: type_info::type_name<RENA>(), contributor: *contributor, amount: share_amount } );
             };
@@ -413,7 +413,7 @@ module rena_multisig::presale {
                 let contributor = vector::borrow(&contributors_vec, i);
                 let contribution = vector::borrow(&contributions_vec, i);
                 let share_amount = calculate_share(*contribution, sale_supply, raised_funds);
-                distribute_share(*contributor, share_amount);
+                distribute_share<WhitelistInfo>(*contributor, share_amount);
                 // emit event
                 event::emit( ShareDistributed { cointype: type_info::type_name<RENA>(), contributor: *contributor, amount: share_amount } );
             };
@@ -441,9 +441,14 @@ module rena_multisig::presale {
     }
 
     /// Distribute the share of the contributor
-    inline fun distribute_share(contributor: address, share_amount: u64) {
-        let info_mut = borrow_global_mut<Info>(@rena);
-        let share_coins = coin::extract<RENA>(&mut info_mut.sale_supply, share_amount);
+    inline fun distribute_share<T>(contributor: address, share_amount: u64) {
+        let share_coins = if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            let info_mut = borrow_global_mut<Info>(@rena);
+            coin::extract<RENA>(&mut info_mut.sale_supply, share_amount)
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info_mut = borrow_global_mut<WhitelistInfo>(@rena);
+            coin::extract<RENA>(&mut info_mut.sale_supply, share_amount)
+        } else { abort EUNKNOWN_TYPE };
         aptos_account::deposit_coins<RENA>(contributor, share_coins);
     }
 
@@ -468,77 +473,117 @@ module rena_multisig::presale {
     
     // --------------
     // View functions
-    // --------------   
+    // --------------
 
     #[view]
     /// Get the treasury address
-    public fun treasury_address(): address acquires Info {
-        borrow_global<Info>(@rena).treasury
+    public fun treasury_address<T>(): address acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            borrow_global<Info>(@rena).treasury
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            borrow_global<WhitelistInfo>(@rena).treasury
+        } else { abort EUNKNOWN_TYPE }
     }
 
     #[view]
     /// Get the start time of the presale
-    public fun start_time(): u64 acquires Info {
-        borrow_global<Info>(@rena).start
-    }
+    public fun start_time<T>(): u64 acquires Info, WhitelistInfo {
+            if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+                borrow_global<Info>(@rena).start
+            } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+                borrow_global<WhitelistInfo>(@rena).start
+            } else { abort EUNKNOWN_TYPE }
+        }
     
     #[view]
     /// Get the end time of the presale
-    public fun end_time(): u64 acquires Info {
-        borrow_global<Info>(@rena).end
+    public fun end_time<T>(): u64 acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            borrow_global<Info>(@rena).end
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            borrow_global<WhitelistInfo>(@rena).end
+        } else { abort EUNKNOWN_TYPE }
     }
 
     #[view]
     /// Get the remaining time of the presale
-    public fun remaining_time(): u64 acquires Info {
-        let info = borrow_global<Info>(@rena);
-        if (info.is_completed) { 0 } else {
-        if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start) { 0 } else {
-                info.end - timestamp::now_seconds()
-            }
-        }
+    public fun remaining_time<T>(): u64 acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            let info = borrow_global<Info>(@rena);
+            if (info.is_completed) { 0 } else {
+                if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start) 
+                    { 0 } else { info.end - timestamp::now_seconds() }}
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info = borrow_global<WhitelistInfo>(@rena);
+            if (info.is_completed) { 0 } else {
+                if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start) 
+                    { 0 } else { info.end - timestamp::now_seconds() }}
+        } else { abort EUNKNOWN_TYPE }
     }
 
     #[view]
     /// Check if the presale is completed
-    public fun is_completed(): bool acquires Info {
-        borrow_global<Info>(@rena).is_completed
+    public fun is_completed<T>(): bool acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            borrow_global<Info>(@rena).is_completed
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            borrow_global<WhitelistInfo>(@rena).is_completed
+        } else { abort EUNKNOWN_TYPE }
     }
     
     
     #[view]
     /// Get the total number of contributors
-    public fun total_contributors(): u64 acquires Info {
-        let info = borrow_global<Info>(@rena);
-        vector::length(&simple_map::keys(&smart_table::to_simple_map(&info.contributors)))
+    public fun total_contributors<T>(): u64 acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            let info = borrow_global<Info>(@rena);
+            vector::length(&simple_map::keys(&smart_table::to_simple_map(&info.contributors)))
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info = borrow_global<WhitelistInfo>(@rena);
+            vector::length(&simple_map::keys(&smart_table::to_simple_map(&info.contributors)))
+        } else { abort EUNKNOWN_TYPE }
     }
 
     #[view]
     /// Get the total raised funds
-    public fun total_raised_funds(): u64 acquires Info {
-        coin::value<APT>(&borrow_global<Info>(@rena).raised_funds)
+    public fun total_raised_funds<T>(): u64 acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            coin::value<APT>(&borrow_global<Info>(@rena).raised_funds)
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            coin::value<APT>(&borrow_global<WhitelistInfo>(@rena).raised_funds)
+        } else { abort EUNKNOWN_TYPE }
     }
     
     #[view]
     /// Get the contributed amount of the signer
-    public fun contributed_amount(addr: address): u64 acquires Info {
-        let info = borrow_global<Info>(@rena);
+    public fun contributed_amount<T>(addr: address): u64 acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            let info = borrow_global<Info>(@rena);
         if (smart_table::contains(&info.contributors, addr)) {
             *smart_table::borrow(&info.contributors, addr)
-        } else {
-            0
-        }
+        } else { 0 }
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info = borrow_global<WhitelistInfo>(@rena);
+            if (smart_table::contains(&info.contributors, addr)) {
+                *smart_table::borrow(&info.contributors, addr)
+            } else { 0 }
+        } else { abort EUNKNOWN_TYPE }
     }
 
     #[view]
     /// Get the contributed amount of the signer
-    public fun contributed_amount_from_address(contributor_addr: address): u64 acquires Info {
-        let info = borrow_global<Info>(@rena);
-        if (smart_table::contains(&info.contributors, contributor_addr)) {
-            *smart_table::borrow(&info.contributors, contributor_addr)
-        } else {
-            0
-        }
+    public fun contributed_amount_from_address<T>(contributor_addr: address): u64 acquires Info, WhitelistInfo {
+        if (type_info::type_of<T>() == type_info::type_of<Info>()) {
+            let info = borrow_global<Info>(@rena);
+            if (smart_table::contains(&info.contributors, contributor_addr)) {
+                *smart_table::borrow(&info.contributors, contributor_addr)
+            } else { 0 }
+        } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
+            let info = borrow_global<WhitelistInfo>(@rena);
+            if (smart_table::contains(&info.contributors, contributor_addr)) {
+                *smart_table::borrow(&info.contributors, contributor_addr)
+            } else { 0 }
+        } else { abort EUNKNOWN_TYPE }
     }
 
     #[view]
@@ -604,76 +649,76 @@ module rena_multisig::presale {
     }
 
     #[test(aptos_framework = @0x1, rena = @rena, rena_treasury = @rena_treasury, alice = @0x123, bob = @0x456, charlie = @0x789, eve = @0xabc)]
-    fun test_e2e(aptos_framework: signer, rena: &signer, rena_treasury: &signer, alice: &signer, bob: &signer, charlie: &signer, eve: &signer) acquires Info {
+    fun test_presale_e2e(aptos_framework: signer, rena: &signer, rena_treasury: &signer, alice: &signer, bob: &signer, charlie: &signer, eve: &signer) acquires Info, WhitelistInfo {
         setup_test(aptos_framework, rena, rena_treasury, alice, bob, charlie, eve);
         // initialize the presale
         let start_time = timestamp::now_seconds() + 10;
         let end_time = timestamp::now_seconds() + 360;
-        init(rena, @rena_treasury, start_time, end_time, 2500 * pow(10, 8));
-        assert!(treasury_address() == @rena_treasury, 1);
+        init<Info>(rena, @rena_treasury, start_time, end_time, 2500 * pow(10, 8), vector[]);
+        assert!(treasury_address<Info>() == @rena_treasury, 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(alice)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(bob)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(charlie)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(eve)), 1);
         // assert the presale is not active yet
-        assert!(start_time() > timestamp::now_seconds(), 1);
+        assert!(start_time<Info>() > timestamp::now_seconds(), 1);
 
         // forward to the start time
         timestamp::fast_forward_seconds(10);
         // assert the presale is active
-        assert!(!is_completed(), 1);
-        assert!(start_time() == timestamp::now_seconds(), 2);
-        assert!(remaining_time() == (end_time() - start_time()), 3);
+        assert!(!is_completed<Info>(), 1);
+        assert!(start_time<Info>() == timestamp::now_seconds(), 2);
+        assert!(remaining_time<Info>() == (end_time<Info>() - start_time<Info>()), 3);
         // contribute to the presale
-        contribute(alice, 100 * pow(10, 8));
-        assert!(total_contributors() == 1, 1);
-        assert!(contributed_amount(alice) == 100 * pow(10, 8), 1);
-        assert!(raised_funds() == 100 * pow(10, 8), 2);
+        contribute<Info>(alice, 100 * pow(10, 8));
+        assert!(total_contributors<Info>() == 1, 1);
+        assert!(contributed_amount<Info>(signer::address_of(alice)) == 100 * pow(10, 8), 1);
+        assert!(total_raised_funds<Info>() == 100 * pow(10, 8), 2);
 
         // forward 60 seconds
         timestamp::fast_forward_seconds(60);
-        assert!(remaining_time() == (end_time() - timestamp::now_seconds()), 4);
-        contribute(bob, 200 * pow(10, 8));
-        assert!(total_contributors() == 2, 1);
-        assert!(contributed_amount(bob) == 200 * pow(10, 8), 1);
-        assert!(raised_funds() == 300 * pow(10, 8), 2);
+        assert!(remaining_time<Info>() == (end_time<Info>() - timestamp::now_seconds()), 4);
+        contribute<Info>(bob, 200 * pow(10, 8));
+        assert!(total_contributors<Info>() == 2, 1);
+        assert!(contributed_amount<Info>(signer::address_of(bob)) == 200 * pow(10, 8), 1);
+        assert!(total_raised_funds<Info>() == 300 * pow(10, 8), 2);
 
         // forward 60 seconds
         timestamp::fast_forward_seconds(60);
-        assert!(remaining_time() == (end_time() - timestamp::now_seconds()), 5);
-        contribute(charlie, 300 * pow(10, 8));
-        assert!(total_contributors() == 3, 1);
-        assert!(contributed_amount(charlie) == 300 * pow(10, 8), 1);
-        assert!(raised_funds() == 600 * pow(10, 8), 2);
+        assert!(remaining_time<Info>() == (end_time<Info>() - timestamp::now_seconds()), 5);
+        contribute<Info>(charlie, 300 * pow(10, 8));
+        assert!(total_contributors<Info>() == 3, 1);
+        assert!(contributed_amount<Info>(signer::address_of(charlie)) == 300 * pow(10, 8), 1);
+        assert!(total_raised_funds<Info>() == 600 * pow(10, 8), 2);
 
         // forward 60 seconds
         timestamp::fast_forward_seconds(60);
-        assert!(remaining_time() == (end_time() - timestamp::now_seconds()), 6);
-        contribute(eve, 200 * pow(10, 8));
-        assert!(total_contributors() == 4, 1);
-        assert!(contributed_amount(eve) == 200 * pow(10, 8), 1);
-        assert!(raised_funds() == 800 * pow(10, 8), 2);
-        contribute(eve, 200 * pow(10, 8));
-        assert!(total_contributors() == 4, 1);
-        assert!(contributed_amount(eve) == 400 * pow(10, 8), 1);
-        assert!(raised_funds() == 1000 * pow(10, 8), 2);
+        assert!(remaining_time<Info>() == (end_time<Info>() - timestamp::now_seconds()), 6);
+        contribute<Info>(eve, 200 * pow(10, 8));
+        assert!(total_contributors<Info>() == 4, 1);
+        assert!(contributed_amount<Info>(signer::address_of(eve)) == 200 * pow(10, 8), 1);
+        assert!(total_raised_funds<Info>() == 800 * pow(10, 8), 2);
+        contribute<Info>(eve, 200 * pow(10, 8));
+        assert!(total_contributors<Info>() == 4, 1);
+        assert!(contributed_amount<Info>(signer::address_of(eve)) == 400 * pow(10, 8), 1);
+        assert!(total_raised_funds<Info>() == 1000 * pow(10, 8), 2);
 
         // forward to the end time
         timestamp::fast_forward_seconds(end_time);
-        assert!(remaining_time() == 0, 5);
-        assert!(!is_completed(), 3);    // completed only when finalized
-        assert!(total_contributors() == 4, 1);
-        assert!(raised_funds() == 1000 * pow(10, 8), 2);
+        assert!(remaining_time<Info>() == 0, 5);
+        assert!(!is_completed<Info>(), 3);    // completed only when finalized
+        assert!(total_contributors<Info>() == 4, 1);
+        assert!(total_raised_funds<Info>() == 1000 * pow(10, 8), 2);
         let info = borrow_global<Info>(@rena);
         assert!(coin::value<RENA>(&info.sale_supply) == 2500 * pow(10, 8), 1);
         assert!(coin::value<APT>(&info.raised_funds) == 1000 * pow(10, 8), 2);
         // finalize the presale
         let treasury_before_finalize = coin::balance<APT>(@rena_treasury);
-        let expected_treasury_balance = raised_funds();
-        finalize(rena);
+        let expected_treasury_balance = total_raised_funds<Info>();
+        finalize<Info>(rena);
         assert!(coin::balance<RENA>(@rena) == 2500 * pow(10, 8), 1);
         assert!(coin::balance<APT>(@rena_treasury) == expected_treasury_balance + treasury_before_finalize, 2);
-        assert!(is_completed(), 4);
+        assert!(is_completed<Info>(), 4);
         // alice should receive 100 * 2500 / 1000 = 250 RENA
         assert!(coin::balance<RENA>(signer::address_of(alice)) == 250 * pow(10, 8), 1);
         // bob should receive 200 * 2500 / 1000 = 500 RENA
@@ -686,5 +731,52 @@ module rena_multisig::presale {
         // eve should receive 400 * 2500 / 1000 = 1000 RENA
         assert!(coin::balance<RENA>(signer::address_of(eve)) == 1000 * pow(10, 8), 4);
     }
+
+    #[test(aptos_framework = @0x1, rena = @rena, rena_treasury = @rena_treasury, alice = @0x123, bob = @0x456, charlie = @0x789, eve = @0xabc)]
+    fun test_whitelist_presale_e2e(aptos_framework: signer, rena: &signer, rena_treasury: &signer, alice: &signer, bob: &signer, charlie: &signer, eve: &signer) acquires Info, WhitelistInfo {
+        let whitelist = vector[signer::address_of(alice), signer::address_of(bob), signer::address_of(charlie)];
+        setup_test(aptos_framework, rena, rena_treasury, alice, bob, charlie, eve);
+        // initialize the presale
+        let start_time = timestamp::now_seconds();
+        let end_time = timestamp::now_seconds() + 360;
+        init<WhitelistInfo>(rena, @rena_treasury, start_time, end_time, 2500 * pow(10, 8), whitelist);
+        assert!(treasury_address<WhitelistInfo>() == @rena_treasury, 1);
+        assert!(!coin::is_account_registered<RENA>(signer::address_of(alice)), 1);
+        assert!(!coin::is_account_registered<RENA>(signer::address_of(bob)), 1);
+        assert!(!coin::is_account_registered<RENA>(signer::address_of(charlie)), 1);
+        assert!(!coin::is_account_registered<RENA>(signer::address_of(eve)), 1);
+        
+        // alice, bob, and charlie should be whitelisted
+        assert!(is_whitelisted(signer::address_of(alice)), 1);
+        assert!(is_whitelisted(signer::address_of(bob)), 1);
+        assert!(is_whitelisted(signer::address_of(charlie)), 1);
+
+        // eve should not be whitelisted
+        assert!(!is_whitelisted(signer::address_of(eve)), 1);
+
+        // alice, bob, and charlie should be able to contribute
+        contribute<WhitelistInfo>(alice, 100 * pow(10, 8));
+        contribute<WhitelistInfo>(bob, 200 * pow(10, 8));
+        contribute<WhitelistInfo>(charlie, 300 * pow(10, 8));
+
+        // // eve should not be able to contribute
+        // contribute<WhitelistInfo>(eve, 200 * pow(10, 8));
+
+        // forward to the end time and finalize the presale
+        timestamp::fast_forward_seconds(end_time+1);
+        finalize<WhitelistInfo>(rena);
+        
+        // alice should receive 100 * 2500 / 600 = 416.66666666 RENA
+        // debug::print<u64>(&coin::balance<RENA>(signer::address_of(alice)));
+        assert!(coin::balance<RENA>(signer::address_of(alice)) == 41666666666, 1);
+        // bob should receive 200 * 2500 / 600 = 833.33333333 RENA
+        // debug::print<u64>(&coin::balance<RENA>(signer::address_of(bob)));
+        assert!(coin::balance<RENA>(signer::address_of(bob)) == 83333333333, 2);
+        // charlie should receive 300 * 2500 / 600 = 1250 RENA
+        // debug::print<u64>(&coin::balance<RENA>(signer::address_of(charlie)));
+        assert!(coin::balance<RENA>(signer::address_of(charlie)) == 125000000000, 3);
+    }
+
+    /// TODO: test e2e
 
 }
