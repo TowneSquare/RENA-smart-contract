@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-rena = "30604f2c399982920606bb2074d9721191c07e24549405da04a3f49ce4457186"
+rena = "0xba092add8ca6e1291319c2f60da6542ff97261a235632cff4eb1de1076f670fc"
 
 [dev-addresses]
 

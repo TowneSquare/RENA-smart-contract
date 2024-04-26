@@ -265,7 +265,7 @@ module rena::core {
         let tokens_addr = vector::empty();
         
         // mint tokens
-        for (i in 1..token_count) {
+        for (i in 1..(token_count+1)) {
             let token_uri = folder_uri;
             // folder_uri + "/" + i + ".png"
             string::append_utf8(&mut token_uri, b"/");
