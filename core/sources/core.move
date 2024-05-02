@@ -98,7 +98,7 @@ module rena::core {
 
     fun init_module(signer_ref: &signer) {
         // init fee; 0.05 APT
-        move_to(signer_ref, Fee { amount: 500000 });
+        move_to(signer_ref, Fee { amount: 1000000 });
     }
 
     // -----------
@@ -260,7 +260,7 @@ module rena::core {
         suffix: String,
         royalty: Option<royalty::Royalty>,
         folder_uri: String // e.g: https://bafybeigha5ts6nn3d362nqb2fsxkyomq5u2lei2a3u32uwz7qz7jy4gg4i.ipfs.nftstorage.link
-    ): (vector<Object<TokenV2>>, vector<address>){
+    ): (vector<Object<TokenV2>>, vector<address>) {
         let tokens = vector::empty<Object<TokenV2>>();
         let tokens_addr = vector::empty();
         
@@ -287,35 +287,6 @@ module rena::core {
         };
 
         (tokens, tokens_addr)
-    }
-
-    inline fun create_token(
-        creator: &signer, 
-        collection_name: String,
-        token_description: String,
-        prefix: String,
-        index: u64,
-        token_uri: String,
-    ): (Object<TokenV2>, address) {
-        let name = token_name(index, prefix);
-        let constructor = token::create(
-            creator,
-            collection_name,
-            token_description,
-            name,
-            option::none(),
-            token_uri,
-        );
-
-        (
-            object::object_from_constructor_ref<TokenV2>(&constructor), 
-            object::address_from_constructor_ref(&constructor)
-        )
-    }
-
-    /// Generate token name based on the index
-    inline fun token_name(i: u64, prefix: String): String {
-        string_utils::format2(&b"{}:{}", prefix, i)
     }
 
     /// Retrieve fee from the caller

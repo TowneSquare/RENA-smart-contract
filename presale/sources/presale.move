@@ -2,7 +2,7 @@
     Simple presale module for RENA
 
     TODO:
-        - Presale can only happen once?
+        - Revisit access control and resource borrow
 */
 
 module rena_multisig::presale {
@@ -134,10 +134,10 @@ module rena_multisig::presale {
 
     /// Initialize/schedule the presale
     entry fun init<T>(
-        signer_ref: &signer, 
-        treasury_addr: address, 
-        start: u64, 
-        end: u64, 
+        signer_ref: &signer,
+        treasury_addr: address,
+        start: u64,
+        end: u64,
         sale_supply: u64,
         whitelist: vector<address>  // Ignore if presale is not whitelisted
     ) acquires Info, WhitelistInfo {
@@ -310,7 +310,7 @@ module rena_multisig::presale {
     //         }
     //     )
     // }
-    
+
     /// Contribute to the presale
     entry fun contribute<T>(signer_ref: &signer, amount: u64) acquires Info, WhitelistInfo {
         // assert amount is greater than 1 APT
@@ -360,7 +360,7 @@ module rena_multisig::presale {
                 let contribution_coin = coin::withdraw(signer_ref, amount);
                 coin::merge<APT>(&mut info_mut.raised_funds, contribution_coin);
                 // add the signer to the contributors map
-                smart_table::add(&mut info_mut.contributors, signer_addr, amount);   
+                smart_table::add(&mut info_mut.contributors, signer_addr, amount);
             }
         } else { abort EUNKNOWN_TYPE };
         // emit event
@@ -470,7 +470,7 @@ module rena_multisig::presale {
         // emit event
         event::emit( ContributionUpdated { contributor: signer_addr, updated_amount: new_amount } );
     }
-    
+
     // --------------
     // View functions
     // --------------
@@ -494,7 +494,7 @@ module rena_multisig::presale {
                 borrow_global<WhitelistInfo>(@rena).start
             } else { abort EUNKNOWN_TYPE }
         }
-    
+
     #[view]
     /// Get the end time of the presale
     public fun end_time<T>(): u64 acquires Info, WhitelistInfo {
@@ -511,12 +511,12 @@ module rena_multisig::presale {
         if (type_info::type_of<T>() == type_info::type_of<Info>()) {
             let info = borrow_global<Info>(@rena);
             if (info.is_completed) { 0 } else {
-                if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start) 
+                if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start)
                     { 0 } else { info.end - timestamp::now_seconds() }}
         } else if (type_info::type_of<T>() == type_info::type_of<WhitelistInfo>()) {
             let info = borrow_global<WhitelistInfo>(@rena);
             if (info.is_completed) { 0 } else {
-                if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start) 
+                if (timestamp::now_seconds() > info.end || timestamp::now_seconds() < info.start)
                     { 0 } else { info.end - timestamp::now_seconds() }}
         } else { abort EUNKNOWN_TYPE }
     }
@@ -530,8 +530,8 @@ module rena_multisig::presale {
             borrow_global<WhitelistInfo>(@rena).is_completed
         } else { abort EUNKNOWN_TYPE }
     }
-    
-    
+
+
     #[view]
     /// Get the total number of contributors
     public fun total_contributors<T>(): u64 acquires Info, WhitelistInfo {
@@ -553,7 +553,7 @@ module rena_multisig::presale {
             coin::value<APT>(&borrow_global<WhitelistInfo>(@rena).raised_funds)
         } else { abort EUNKNOWN_TYPE }
     }
-    
+
     #[view]
     /// Get the contributed amount of the signer
     public fun contributed_amount<T>(addr: address): u64 acquires Info, WhitelistInfo {
@@ -629,7 +629,7 @@ module rena_multisig::presale {
         managed_coin::register<APT>(bob);
         managed_coin::register<APT>(charlie);
         managed_coin::register<APT>(eve);
-        
+
         // mint some APT
         aptos_coin::mint(&aptos_framework, signer::address_of(rena), 10000 * pow(10, 8));
         aptos_coin::mint(&aptos_framework, signer::address_of(alice), 10000 * pow(10, 8));
@@ -745,7 +745,7 @@ module rena_multisig::presale {
         assert!(!coin::is_account_registered<RENA>(signer::address_of(bob)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(charlie)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(eve)), 1);
-        
+
         // alice, bob, and charlie should be whitelisted
         assert!(is_whitelisted(signer::address_of(alice)), 1);
         assert!(is_whitelisted(signer::address_of(bob)), 1);
@@ -765,7 +765,7 @@ module rena_multisig::presale {
         // forward to the end time and finalize the presale
         timestamp::fast_forward_seconds(end_time+1);
         finalize<WhitelistInfo>(rena);
-        
+
         // alice should receive 100 * 2500 / 600 = 416.66666666 RENA
         // debug::print<u64>(&coin::balance<RENA>(signer::address_of(alice)));
         assert!(coin::balance<RENA>(signer::address_of(alice)) == 41666666666, 1);
