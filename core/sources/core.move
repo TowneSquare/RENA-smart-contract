@@ -59,13 +59,12 @@ module rena::core {
 
     #[event]
     struct CollectionCreated has drop, store { 
-        collection_addr: address,
-        tokens_addr: vector<address>
+        collection_addr: address
     }
 
     #[event]
     struct LiquidTokensCreated has drop, store { 
-        collection_name: String,
+        collection_obj: Object<Collection>,
         tokens_addr: vector<address>
     }
 
@@ -105,8 +104,8 @@ module rena::core {
     // Public APIs
     // -----------
 
-    /// Create a collection and mint tokens; this has a limit of 500 tokens minted at a time.
-    entry fun create_collection_and_mint_tokens(
+    /// Create a collection
+    entry fun create_collection(
         signer_ref: &signer,
         // collection
         collection_description: String,
@@ -116,12 +115,6 @@ module rena::core {
         // royalty - e.g 5% = 5/100 = 1/20
         royalty_numerator: u64,
         royalty_denominator: u64,
-        // tokens
-        tokens_description: String,
-        folder_uri: String,
-        prefix: String,
-        suffix: String,
-        token_count: u64
     ) {
         assert!(signer::address_of(signer_ref) == @rena, ENOT_RENA);
         let royalty = option::some(
@@ -137,23 +130,10 @@ module rena::core {
             collection_uri
         );
 
-        // create tokens
-        let (_, tokens_addr) = create_tokens(
-            signer_ref,
-            collection_name,
-            token_count,
-            tokens_description,
-            prefix,
-            suffix,
-            royalty,
-            folder_uri 
-        );
-
         // emit events
         event::emit(
             CollectionCreated {
-                collection_addr: object::address_from_constructor_ref(&constructor_ref),
-                tokens_addr
+                collection_addr: object::address_from_constructor_ref(&constructor_ref)
             }
         );
     }
@@ -161,7 +141,7 @@ module rena::core {
     /// Mint a batch of tokens
     entry fun mint_tokens(
         signer_ref: &signer,
-        collection_name: String,
+        collection_obj: Object<Collection>,
         token_count: u64,
         tokens_description: String,
         folder_uri: String,
@@ -176,7 +156,7 @@ module rena::core {
         );  
         let (_, tokens_addr) = create_tokens(
             signer_ref,
-            collection_name,
+            collection_obj,
             token_count,
             tokens_description,
             prefix,
@@ -188,7 +168,7 @@ module rena::core {
         // emit events
         event::emit(
             LiquidTokensCreated {
-                collection_name,
+                collection_obj,
                 tokens_addr
             }
         );
@@ -253,7 +233,7 @@ module rena::core {
 
     inline fun create_tokens(
         signer_ref: &signer,
-        collection_name: String,
+        collection: Object<Collection>,
         token_count: u64,
         tokens_description: String,
         prefix: String,
@@ -265,7 +245,9 @@ module rena::core {
         let tokens_addr = vector::empty();
         
         // mint tokens
-        for (i in 1..(token_count+1)) {
+        let first_index = 1 + *option::borrow(&collection::count(collection));
+        let last_index = first_index + token_count;
+        for (i in first_index..last_index) {
             let token_uri = folder_uri;
             // folder_uri + "/" + i + ".png"
             string::append_utf8(&mut token_uri, b"/");
@@ -274,7 +256,7 @@ module rena::core {
 
             let (constructor) = token::create_numbered_token(
                 signer_ref,
-                collection_name,
+                collection::name(collection),
                 tokens_description,
                 prefix,
                 suffix,
