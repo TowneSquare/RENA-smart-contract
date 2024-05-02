@@ -14,7 +14,9 @@ rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.Rena]
-local = "./packages/Rena"
+git = "https://github.com/TowneSquare/RENA-smart-contract.git"
+rev = "main"
+subdir = "core"
 
 [dev-dependencies]
 
