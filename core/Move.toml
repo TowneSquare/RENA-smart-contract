@@ -10,17 +10,17 @@ rena = "0x41f77807ac3135c4adfe9995462901f99765b50a2ab547e234c01f8e68a431bd"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "main"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.AptosTokenObjects]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "main"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-token-objects"
 
 [dependencies.AptosToken]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "main"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-token"
 
 [dev-dependencies]
