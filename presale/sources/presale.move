@@ -1,8 +1,6 @@
 /*
     Simple presale module for RENA
 
-    TODO:
-        - Revisit access control and resource borrow
 */
 
 module rena_multisig::presale {
