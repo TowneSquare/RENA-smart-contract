@@ -648,14 +648,14 @@ module rena_multisig::presale {
         timestamp::set_time_has_started_for_testing(&aptos_framework);
     }
 
-    #[test(aptos_framework = @0x1, rena = @rena, rena_treasury = @rena_treasury, alice = @0x123, bob = @0x456, charlie = @0x789, eve = @0xabc)]
+    #[test(aptos_framework = @0x1, rena = @rena, rena_treasury = @rena_multisig, alice = @0x123, bob = @0x456, charlie = @0x789, eve = @0xabc)]
     fun test_presale_e2e(aptos_framework: signer, rena: &signer, rena_treasury: &signer, alice: &signer, bob: &signer, charlie: &signer, eve: &signer) acquires Info, WhitelistInfo {
         setup_test(aptos_framework, rena, rena_treasury, alice, bob, charlie, eve);
         // initialize the presale
         let start_time = timestamp::now_seconds() + 10;
         let end_time = timestamp::now_seconds() + 360;
-        init<Info>(rena, @rena_treasury, start_time, end_time, 2500 * pow(10, 8), vector[]);
-        assert!(treasury_address<Info>() == @rena_treasury, 1);
+        init<Info>(rena, @rena_multisig, start_time, end_time, 2500 * pow(10, 8), vector[]);
+        assert!(treasury_address<Info>() == @rena_multisig, 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(alice)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(bob)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(charlie)), 1);
@@ -713,11 +713,11 @@ module rena_multisig::presale {
         assert!(coin::value<RENA>(&info.sale_supply) == 2500 * pow(10, 8), 1);
         assert!(coin::value<APT>(&info.raised_funds) == 1000 * pow(10, 8), 2);
         // finalize the presale
-        let treasury_before_finalize = coin::balance<APT>(@rena_treasury);
+        let treasury_before_finalize = coin::balance<APT>(@rena_multisig);
         let expected_treasury_balance = total_raised_funds<Info>();
         finalize<Info>(rena);
         assert!(coin::balance<RENA>(@rena) == 2500 * pow(10, 8), 1);
-        assert!(coin::balance<APT>(@rena_treasury) == expected_treasury_balance + treasury_before_finalize, 2);
+        assert!(coin::balance<APT>(@rena_multisig) == expected_treasury_balance + treasury_before_finalize, 2);
         assert!(is_completed<Info>(), 4);
         // alice should receive 100 * 2500 / 1000 = 250 RENA
         assert!(coin::balance<RENA>(signer::address_of(alice)) == 250 * pow(10, 8), 1);
@@ -732,15 +732,15 @@ module rena_multisig::presale {
         assert!(coin::balance<RENA>(signer::address_of(eve)) == 1000 * pow(10, 8), 4);
     }
 
-    #[test(aptos_framework = @0x1, rena = @rena, rena_treasury = @rena_treasury, alice = @0x123, bob = @0x456, charlie = @0x789, eve = @0xabc)]
+    #[test(aptos_framework = @0x1, rena = @rena, rena_treasury = @rena_multisig, alice = @0x123, bob = @0x456, charlie = @0x789, eve = @0xabc)]
     fun test_whitelist_presale_e2e(aptos_framework: signer, rena: &signer, rena_treasury: &signer, alice: &signer, bob: &signer, charlie: &signer, eve: &signer) acquires Info, WhitelistInfo {
         let whitelist = vector[signer::address_of(alice), signer::address_of(bob), signer::address_of(charlie)];
         setup_test(aptos_framework, rena, rena_treasury, alice, bob, charlie, eve);
         // initialize the presale
         let start_time = timestamp::now_seconds();
         let end_time = timestamp::now_seconds() + 360;
-        init<WhitelistInfo>(rena, @rena_treasury, start_time, end_time, 2500 * pow(10, 8), whitelist);
-        assert!(treasury_address<WhitelistInfo>() == @rena_treasury, 1);
+        init<WhitelistInfo>(rena, @rena_multisig, start_time, end_time, 2500 * pow(10, 8), whitelist);
+        assert!(treasury_address<WhitelistInfo>() == @rena_multisig, 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(alice)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(bob)), 1);
         assert!(!coin::is_account_registered<RENA>(signer::address_of(charlie)), 1);
