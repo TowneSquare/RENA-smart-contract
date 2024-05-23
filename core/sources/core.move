@@ -268,6 +268,19 @@ module rena::core {
         liquid_coin::reconcile_pool<RenegadeCoin>(metadata, tokens);
     }
 
+    /// Remove duplicates from pool
+    entry fun admin_remove_duplicates<RenegadeCoin>(
+        signer_ref: &signer,
+        metadata: address,
+        tokens: vector<Object<TokenV2>>
+    ) {
+        let caller = signer::address_of(signer_ref);
+        assert!(caller == @rena, ENOT_RENA);
+
+        // remove duplicates
+        liquid_coin::remove_from_pool<RenegadeCoin>(metadata, tokens);
+    }
+
     // -------
     // Helpers
     // -------
