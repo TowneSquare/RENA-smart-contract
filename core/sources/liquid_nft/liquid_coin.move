@@ -44,6 +44,7 @@ module rena::liquid_coin {
     const E_NOT_FIXED_SUPPLY: u64 = 5;
     /// Token being liquified is not in the collection for the LiquidToken
     const E_NOT_IN_COLLECTION: u64 = 6;
+    /// Can't release token, it's in the pool.
 
     /// Metadata for a liquidity token for a collection
     struct LiquidCoinMetadata<phantom LiquidCoin> has key {
@@ -174,6 +175,24 @@ module rena::liquid_coin {
         });
     }
 
+    /// Release an NFT that is in the pool object but not in the smart vector pool.
+    /// Used when a token is mistankenly transferred to the pool object.
+    /// Called only by the admin.
+    public(friend) fun release_nft<LiquidCoin>(
+        caller: &signer,
+        pool_address: address,
+        token: Object<TokenObject>
+    ) acquires LiquidCoinMetadata {
+        /// Assert the token is in the pool object
+        assert!(object::is_owner(token, pool_address), E_NOT_OWNER_OF_TOKEN);
+        /// Assert the token is not in the smart vector pool
+        let liquid_token = borrow_global<LiquidCoinMetadata<LiquidCoin>>(pool_address);
+        assert!(!smart_vector::contains(&liquid_token.token_pool, &token), E_IN_POOL);
+        /// Transfer the token back to the caller
+        let object_signer = object::generate_signer_for_extending(&liquid_token.extend_ref);
+        object::transfer(&object_signer, token, signer::address_of(caller));
+    }
+
     /// Allows for liquifying a token from the collection
     ///
     /// Note: once a token is put into the
@@ -209,6 +228,10 @@ module rena::liquid_coin {
         let object_signer = object::generate_signer_for_extending(&liquid_token.extend_ref);
         aptos_account::transfer_coins<LiquidCoin>(&object_signer, caller_address, liquidify_amount);
     }
+
+    // --------------
+    // View functions
+    // --------------
 
     #[view]
     /// Lookup the locked up NFT count

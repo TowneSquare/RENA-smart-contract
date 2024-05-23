@@ -242,6 +242,19 @@ module rena::core {
         liquid_coin::lockup_nfts_with_check<RenegadeCoin>(signer_ref, object_address, tokens);
     }
 
+    /// Release NFTs that are in the lockup object but not in the list.
+    entry fun admin_release_nfts(
+        signer_ref: &signer,
+        metadata: Object<LiquidCoinMetadata<RenegadeCoin>>,
+        token: Object<TokenV2>
+    ) {
+        let caller = signer::address_of(signer_ref);
+        assert!(caller == @rena, ENOT_RENA);
+
+        // release NFTs
+        liquid_coin::release_nfts<RenegadeCoin>(signer_ref, metadata, token);
+    }
+
     // -------
     // Helpers
     // -------
