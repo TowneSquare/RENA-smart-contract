@@ -256,6 +256,15 @@ module rena::liquid_coin {
         smart_vector::contains(&liquid_token.token_pool, &nft)
     }
 
+    #[view]
+    /// lookup the locked up NFT adddresses
+    public(friend) fun locked_up_nfts<LiquidCoin>(
+        object_address: address
+    ): vector<Object<TokenObject>> acquires LiquidCoinMetadata {
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        smart_vector::to_vector(&liquid_token.token_pool)
+    }
+
     #[test_only]
     use std::debug;
     #[test_only]

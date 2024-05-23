@@ -29,6 +29,7 @@ How does this work?
 -  [Function `lockup_nft_count`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_lockup_nft_count)
 -  [Function `locked_up_coin_count`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_locked_up_coin_count)
 -  [Function `contains_nft`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_contains_nft)
+-  [Function `locked_up_nfts`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_locked_up_nfts)
 
 
 <pre><code><b>use</b> <a href="">0x1::aptos_account</a>;
@@ -262,4 +263,17 @@ Lookup the locked up coin count
 
 <pre><code>#[view]
 <b>public</b>(<b>friend</b>) <b>fun</b> <a href="liquid_coin.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_contains_nft">contains_nft</a>&lt;LiquidCoin&gt;(object_address: <b>address</b>, nft: <a href="_Object">object::Object</a>&lt;<a href="_Token">token::Token</a>&gt;): bool
+</code></pre>
+
+
+
+<a id="0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_locked_up_nfts"></a>
+
+## Function `locked_up_nfts`
+
+lookup the locked up NFT adddresses
+
+
+<pre><code>#[view]
+<b>public</b>(<b>friend</b>) <b>fun</b> <a href="liquid_coin.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_locked_up_nfts">locked_up_nfts</a>&lt;LiquidCoin&gt;(object_address: <b>address</b>): <a href="">vector</a>&lt;<a href="_Object">object::Object</a>&lt;<a href="_Token">token::Token</a>&gt;&gt;
 </code></pre>
