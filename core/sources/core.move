@@ -58,35 +58,35 @@ module rena::core {
     // ------
 
     #[event]
-    struct CollectionCreated has drop, store { 
+    struct CollectionCreated has drop, store {
         collection_addr: address
     }
 
     #[event]
-    struct LiquidTokensCreated has drop, store { 
+    struct LiquidTokensCreated has drop, store {
         collection_obj: Object<Collection>,
         tokens_addr: vector<address>
     }
 
     #[event]
-    struct LiquidCoinCreated has drop, store { 
+    struct LiquidCoinCreated has drop, store {
         liquid_coin_metadata_obj_addr: address
     }
 
     #[event]
-    struct FeeUpdated has drop, store { 
+    struct FeeUpdated has drop, store {
         old_fee: u64,
         new_fee: u64
     }
 
     #[event]
-    struct Claimed has drop, store { 
+    struct Claimed has drop, store {
         tokens: vector<address>,
         coins_deducted: u64
     }
 
     #[event]
-    struct Liquified has drop, store { 
+    struct Liquified has drop, store {
         tokens: vector<address>,
         coins_received: u64
     }
@@ -153,7 +153,7 @@ module rena::core {
         assert!(signer::address_of(signer_ref) == @rena, ENOT_RENA);
         let royalty = option::some(
             royalty::create(royalty_numerator, royalty_denominator, signer::address_of(signer_ref))
-        );  
+        );
         let (_, tokens_addr) = create_tokens(
             signer_ref,
             collection_obj,
@@ -227,6 +227,21 @@ module rena::core {
         event::emit(Liquified { tokens, coins_received: vector::length(&tokens) });
     }
 
+    /// For initial lockup, and in the event some NFTs are transferred incorrectly
+    entry fun admin_lockup_nfts(
+        signer_ref: &signer,
+        metadata: Object<LiquidCoinMetadata<RenegadeCoin>>,
+        tokens: vector<address>
+    ) {
+        let caller = signer::address_of(signer_ref);
+        assert!(object::is_owner(metadata, caller), ENOT_RENA);
+
+        // Note: All Tokens need to be owned by the signer OR the lockup object
+        let object_address = object::object_address(&metadata);
+
+        liquid_coin::lockup_nfts_with_check<RenegadeCoin>(signer_ref, object_address, tokens);
+    }
+
     // -------
     // Helpers
     // -------
@@ -243,7 +258,7 @@ module rena::core {
     ): (vector<Object<TokenV2>>, vector<address>) {
         let tokens = vector::empty<Object<TokenV2>>();
         let tokens_addr = vector::empty();
-        
+
         // mint tokens
         let first_index = 1 + *option::borrow(&collection::count(collection));
         let last_index = first_index + token_count;
@@ -272,7 +287,7 @@ module rena::core {
     }
 
     /// Retrieve fee from the caller
-    inline fun retrieve_fee(signer_ref: &signer) acquires Fee { 
+    inline fun retrieve_fee(signer_ref: &signer) acquires Fee {
         let signer_addr = signer::address_of(signer_ref);
         if (signer_addr != @rena) {
             let fee = borrow_global<Fee>(@rena);
@@ -281,7 +296,7 @@ module rena::core {
             coin::transfer<APT>(signer_ref, @rena, fee.amount);
         };
     }
-        
+
     // --------
     // Mutators
     // --------

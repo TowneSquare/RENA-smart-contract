@@ -23,9 +23,9 @@ module rena::liquid_coin {
     use aptos_token_objects::collection::{Self, Collection};
     use aptos_token_objects::token::{Self, Token as TokenObject};
     use rena::common::{
-        one_nft_in_coins, 
-        pseudorandom_u64, 
-        create_sticky_object, 
+        one_nft_in_coins,
+        pseudorandom_u64,
+        create_sticky_object,
         create_coin,
         one_token_from_decimals
     };
@@ -140,6 +140,40 @@ module rena::liquid_coin {
         tokens
     }
 
+    public(friend) fun lockup_nfts<LiquidCoin>(
+        caller: &signer,
+        object_address: address,
+        tokens_addr: vector<address>
+    ) acquires LiquidCoinMetadata {
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        // Take tokens add them to the pool
+        vector::for_each(tokens_addr, |token| {
+            let token_obj = object::address_to_object<TokenObject>(token);
+            object::transfer(caller, token_obj, object_address);
+            smart_vector::push_back(&mut liquid_token.token_pool, token_obj);
+        });
+    }
+
+    public(friend) fun lockup_nfts_with_check<LiquidCoin>(
+        caller: &signer,
+        object_address: address,
+        tokens_addr: vector<address>
+    ) acquires LiquidCoinMetadata {
+        let caller_address = signer::address_of(caller);
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        // Take tokens add them to the pool
+        vector::for_each(tokens_addr, |token| {
+            let token_obj = object::address_to_object<TokenObject>(token);
+            assert!(object::is_owner(token_obj, caller_address), E_NOT_OWNER_OF_TOKEN);
+            object::transfer(caller, token_obj, object_address);
+
+            // Only add if it doesn't contain it in the list, this is for reconciling
+            if (!smart_vector::contains(&mut liquid_token.token_pool, &token_obj)) {
+                smart_vector::push_back(&mut liquid_token.token_pool, token_obj);
+            }
+        });
+    }
+
     /// Allows for liquifying a token from the collection
     ///
     /// Note: once a token is put into the
@@ -152,13 +186,13 @@ module rena::liquid_coin {
         let caller_address = signer::address_of(caller);
         let liquidify_amount = one_nft_in_coins<LiquidCoin>() * vector::length(&tokens_addr);
         let object_address = object_address(&metadata);
-        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        let collection = borrow_global<LiquidCoinMetadata<LiquidCoin>>(object_address).collection;
 
         // Check ownership on all tokens and that they're in the collection
         vector::for_each_ref(&tokens_addr, |token| {
             let token_obj = object::address_to_object<TokenObject>(*token);
             assert!(is_owner(token_obj, caller_address), E_NOT_OWNER_OF_TOKEN);
-            assert!(token::collection_object(token_obj) == liquid_token.collection, E_NOT_IN_COLLECTION);
+            assert!(token::collection_object(token_obj) == collection, E_NOT_IN_COLLECTION);
         });
 
         // Ensure there's enough liquid tokens to send out
@@ -168,15 +202,34 @@ module rena::liquid_coin {
         );
 
         // Take tokens add them to the pool
-        vector::for_each(tokens_addr, |token| {
-            let token_obj = object::address_to_object<TokenObject>(token);
-            object::transfer(caller, token_obj, object_address);
-            smart_vector::push_back(&mut liquid_token.token_pool, token_obj);
-        });
+        lockup_nfts<LiquidCoin>(caller, object_address, tokens_addr);
 
         // Return to caller liquidity coins
+        let liquid_token = borrow_global<LiquidCoinMetadata<LiquidCoin>>(object_address);
         let object_signer = object::generate_signer_for_extending(&liquid_token.extend_ref);
         aptos_account::transfer_coins<LiquidCoin>(&object_signer, caller_address, liquidify_amount);
+    }
+
+    #[view]
+    /// Lookup the locked up NFT count
+    public(friend) fun lockup_nft_count<LiquidCoin>(object_address: address): u64 acquires LiquidCoinMetadata {
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        smart_vector::length(&liquid_token.token_pool)
+    }
+
+    #[view]
+    /// Lookup the locked up coin count
+    public(friend) fun locked_up_coin_count<LiquidCoin>(object_address: address): u64 {
+        coin::balance<LiquidCoin>(object_address)
+    }
+
+    #[view]
+    public(friend) fun contains_nft<LiquidCoin>(
+        object_address: address,
+        nft: Object<TokenObject>
+    ): bool acquires LiquidCoinMetadata {
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        smart_vector::contains(&liquid_token.token_pool, &nft)
     }
 
     #[test_only]
@@ -266,7 +319,7 @@ module rena::liquid_coin {
             string::utf8(ASSET_SYMBOL),
             8,
         );
-        
+
 
         liquify(creator, metadata_object, tokens);
     }
