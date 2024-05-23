@@ -45,6 +45,7 @@ module rena::liquid_coin {
     /// Token being liquified is not in the collection for the LiquidToken
     const E_NOT_IN_COLLECTION: u64 = 6;
     /// Can't release token, it's in the pool.
+    const E_IN_POOL: u64 = 7;
 
     /// Metadata for a liquidity token for a collection
     struct LiquidCoinMetadata<phantom LiquidCoin> has key {
@@ -183,12 +184,12 @@ module rena::liquid_coin {
         pool_address: address,
         token: Object<TokenObject>
     ) acquires LiquidCoinMetadata {
-        /// Assert the token is in the pool object
+        // Assert the token is in the pool object
         assert!(object::is_owner(token, pool_address), E_NOT_OWNER_OF_TOKEN);
-        /// Assert the token is not in the smart vector pool
+        // Assert the token is not in the smart vector pool
         let liquid_token = borrow_global<LiquidCoinMetadata<LiquidCoin>>(pool_address);
         assert!(!smart_vector::contains(&liquid_token.token_pool, &token), E_IN_POOL);
-        /// Transfer the token back to the caller
+        // Transfer the token back to the caller
         let object_signer = object::generate_signer_for_extending(&liquid_token.extend_ref);
         object::transfer(&object_signer, token, signer::address_of(caller));
     }
