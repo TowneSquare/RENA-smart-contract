@@ -233,7 +233,7 @@ module rena::common {
 
     #[test_only]
     /// Create tokens and transfer them all to the collector
-    public(friend) fun create_token_objects(
+    public(friend) fun create_token_addresses(
         creator: &signer,
         collector: &signer
     ): vector<address> {
@@ -242,7 +242,7 @@ module rena::common {
         let collector_address = signer::address_of(collector);
 
         // Create 5 tokens with different names
-        for (i in 0..500) {
+        for (i in 0..250) {
             let name = token_name(i);
             let constructor = aptos_token_objects::token::create(
                 creator,
@@ -256,6 +256,41 @@ module rena::common {
             let token = object::object_from_constructor_ref<aptos_token_objects::token::Token>(&constructor);
             let token_addr = object::address_from_constructor_ref(&constructor);
             vector::push_back(&mut tokens, token_addr);
+
+            // Transfer tokens to the collector
+            object::transfer(creator, token, collector_address);
+        };
+
+        tokens
+    }
+
+    #[test_only]
+    use aptos_token_objects::token::Token;
+
+    #[test_only]
+    /// Create tokens and transfer them all to the collector
+    public(friend) fun create_token_objects(
+        creator: &signer,
+        collector: &signer
+    ): vector<Object<Token>> {
+        let tokens = vector[];
+        let collection_name = string::utf8(COLLECTION_NAME);
+        let collector_address = signer::address_of(collector);
+
+        // Create 10 tokens with different names
+        for (i in 0..10) {
+            let name = token_name(i);
+            let constructor = aptos_token_objects::token::create(
+                creator,
+                collection_name,
+                string::utf8(b""),
+                name,
+                option::none(),
+                string::utf8(b""),
+            );
+
+            let token = object::object_from_constructor_ref<aptos_token_objects::token::Token>(&constructor);
+            vector::push_back(&mut tokens, token);
 
             // Transfer tokens to the collector
             object::transfer(creator, token, collector_address);

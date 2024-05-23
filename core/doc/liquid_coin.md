@@ -27,6 +27,7 @@ How does this work?
 -  [Function `release_nft`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_release_nft)
 -  [Function `liquify`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_liquify)
 -  [Function `reconcile_pool`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_reconcile_pool)
+-  [Function `remove_from_pool`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_remove_from_pool)
 -  [Function `lockup_nft_count`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_lockup_nft_count)
 -  [Function `locked_up_coin_count`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_locked_up_coin_count)
 -  [Function `contains_nft`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_contains_nft)
@@ -239,6 +240,18 @@ Useful for reconciling the pool
 
 
 <pre><code><b>public</b>(<b>friend</b>) <b>fun</b> <a href="liquid_coin.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_reconcile_pool">reconcile_pool</a>&lt;LiquidCoin&gt;(object_address: <b>address</b>, tokens_addr: <a href="">vector</a>&lt;<a href="_Object">object::Object</a>&lt;<a href="_Token">token::Token</a>&gt;&gt;)
+</code></pre>
+
+
+
+<a id="0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_remove_from_pool"></a>
+
+## Function `remove_from_pool`
+
+Look for a token in the pool and remove it
+
+
+<pre><code><b>public</b>(<b>friend</b>) <b>fun</b> <a href="liquid_coin.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_liquid_coin_remove_from_pool">remove_from_pool</a>&lt;LiquidCoin&gt;(object_address: <b>address</b>, tokens: <a href="">vector</a>&lt;<a href="_Object">object::Object</a>&lt;<a href="_Token">token::Token</a>&gt;&gt;)
 </code></pre>
 
 

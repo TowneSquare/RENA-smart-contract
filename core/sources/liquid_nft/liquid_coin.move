@@ -243,6 +243,26 @@ module rena::liquid_coin {
         smart_vector::add_all(&mut liquid_token.token_pool, tokens_addr);
     }
 
+    /// Look for a token in the pool and remove it
+    public(friend) fun remove_from_pool<LiquidCoin>(
+        object_address: address,
+        tokens: vector<Object<TokenObject>>
+    ) acquires LiquidCoinMetadata {
+        // iterate through the tokens, if exists in pool, remove it from pool and tokens
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        let remaining_duplicates = tokens;
+        for (i in 0..vector::length(&tokens)) {
+            let token = *vector::borrow(&tokens, i);
+            let (token_exists, token_index) = smart_vector::index_of(&liquid_token.token_pool, &token);
+            let (duplicate_exists, duplicate_index) = vector::index_of(&remaining_duplicates, &token);
+            if (token_exists && duplicate_exists) {
+                smart_vector::remove(&mut liquid_token.token_pool, token_index);
+                vector::remove(&mut remaining_duplicates, duplicate_index);
+            }
+        }
+    }
+            
+
     // --------------
     // View functions
     // --------------
@@ -283,7 +303,7 @@ module rena::liquid_coin {
     #[test_only]
     use std::string;
     #[test_only]
-    use rena::common::{setup_test, create_token_objects_collection, create_token_objects};
+    use rena::common::{setup_test, create_token_objects_collection, create_token_objects, create_token_addresses};
 
     #[test_only]
     struct TestToken {}
@@ -299,7 +319,7 @@ module rena::liquid_coin {
 
         // Setup collection, moving all to a collector
         let collection = create_token_objects_collection(creator);
-        let tokens = create_token_objects(creator, collector);
+        let tokens = create_token_addresses(creator, collector);
 
         // Create liquid token
         let metadata_object = create_liquid_token_internal<TestToken>(
@@ -313,24 +333,49 @@ module rena::liquid_coin {
 
         // Liquify some tokens
         assert!(!coin::is_account_registered<TestToken>(collector_address), 0);
-        for (i in 0..500) {
+        for (i in 0..250) {
             liquify(collector, metadata_object, vector[*vector::borrow(&tokens, i)]);
         };
         // liquify(collector, metadata_object, vector[*vector::borrow(&tokens, 0), *vector::borrow(&tokens, 499)]);
 
         // The tokens should now be in the contract
-        debug::print<u64>(&coin::balance<TestToken>(collector_address));
-        assert!(coin::balance<TestToken>(collector_address) == 500 * one_nft_in_coins<TestToken>(), 2);
+        // debug::print<u64>(&coin::balance<TestToken>(collector_address));
+        assert!(coin::balance<TestToken>(collector_address) == 250 * one_nft_in_coins<TestToken>(), 2);
         let metadata = borrow_global<LiquidCoinMetadata<TestToken>>(object_address);
-        assert!(500 == smart_vector::length(&metadata.token_pool), 3);
+        assert!(250 == smart_vector::length(&metadata.token_pool), 3);
 
         // Claim the NFTs back
-        claim(collector, metadata_object, 500);
+        claim(collector, metadata_object, 250);
 
         // Tokens should be back with the collector
         assert!(coin::balance<TestToken>(collector_address) == 0, 4);
         let metadata = borrow_global<LiquidCoinMetadata<TestToken>>(object_address);
         assert!(0 == smart_vector::length(&metadata.token_pool), 5);
+
+        // reconciling the pool
+        let tokens = create_token_objects(creator, collector);
+        reconcile_pool<TestToken>(object_address, tokens);
+        let metadata = borrow_global<LiquidCoinMetadata<TestToken>>(object_address);
+        assert!(10 == smart_vector::length(&metadata.token_pool), 6);
+
+        // create a vector with the first two tokens
+        let duplicates = vector[*vector::borrow(&tokens, 0), *vector::borrow(&tokens, 1)];
+        // add the vector to the pool
+        let metadata = borrow_global_mut<LiquidCoinMetadata<TestToken>>(object_address);
+        smart_vector::add_all(&mut metadata.token_pool, duplicates);
+        let metadata = borrow_global<LiquidCoinMetadata<TestToken>>(object_address);
+        debug::print<vector<Object<TokenObject>>>(&smart_vector::to_vector(&metadata.token_pool));
+        // debug::print<u64>(&smart_vector::length(&metadata.token_pool));
+        assert!(12 == smart_vector::length(&metadata.token_pool), 7);
+        // remove from pool
+        remove_from_pool<TestToken>(object_address, duplicates);
+        let metadata = borrow_global<LiquidCoinMetadata<TestToken>>(object_address);
+        assert!(vector::length(&tokens) == smart_vector::length(&metadata.token_pool), 7);
+        // assert token pool = tokens 
+        // debug::print<vector<Object<TokenObject>>>(&tokens);
+        debug::print<vector<Object<TokenObject>>>(&smart_vector::to_vector(&metadata.token_pool));
+        debug::print<vector<Object<TokenObject>>>(&duplicates);
+
     }
 
     #[test(creator = @rena, collector = @0xbeef)]
@@ -340,7 +385,7 @@ module rena::liquid_coin {
 
         // Setup collection, moving all to a collector
         let collection = create_token_objects_collection(creator);
-        create_token_objects(creator, collector);
+        create_token_addresses(creator, collector);
         create_liquid_token_internal<TestToken>(
             collector,
             collection,
@@ -357,7 +402,7 @@ module rena::liquid_coin {
 
         // Setup collection, moving all to a collector
         let collection = create_token_objects_collection(creator);
-        let tokens = create_token_objects(creator, collector);
+        let tokens = create_token_addresses(creator, collector);
         let metadata_object = create_liquid_token_internal<TestToken>(
             creator,
             collection,
