@@ -255,6 +255,19 @@ module rena::core {
         liquid_coin::release_nft<RenegadeCoin>(signer_ref, metadata, token);
     }
 
+    /// Reconile pool
+    entry fun admin_reconcile_pool<RenegadeCoin>(
+        signer_ref: &signer,
+        metadata: address,
+        tokens: vector<Object<TokenV2>>
+    ) {
+        let caller = signer::address_of(signer_ref);
+        assert!(caller == @rena, ENOT_RENA);
+
+        // reconcile pool
+        liquid_coin::reconcile_pool<RenegadeCoin>(metadata, tokens);
+    }
+
     // -------
     // Helpers
     // -------

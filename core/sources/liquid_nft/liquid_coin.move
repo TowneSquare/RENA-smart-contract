@@ -230,6 +230,19 @@ module rena::liquid_coin {
         aptos_account::transfer_coins<LiquidCoin>(&object_signer, caller_address, liquidify_amount);
     }
 
+    /// Clear the token pool smart vector and add the given tokens
+    /// Useful for reconciling the pool
+    public(friend) fun reconcile_pool<LiquidCoin>(
+        object_address: address,
+        tokens_addr: vector<Object<TokenObject>>
+    ) acquires LiquidCoinMetadata {
+        // clear the pool smart vector
+        let liquid_token = borrow_global_mut<LiquidCoinMetadata<LiquidCoin>>(object_address);
+        smart_vector::clear(&mut liquid_token.token_pool);
+        // Take tokens add them to the pool
+        smart_vector::add_all(&mut liquid_token.token_pool, tokens_addr);
+    }
+
     // --------------
     // View functions
     // --------------

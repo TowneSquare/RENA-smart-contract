@@ -21,6 +21,7 @@
 -  [Function `liquify_rena`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_liquify_rena)
 -  [Function `admin_lockup_nfts`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_admin_lockup_nfts)
 -  [Function `admin_release_nft`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_admin_release_nft)
+-  [Function `admin_reconcile_pool`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_admin_reconcile_pool)
 -  [Function `set_fee`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_set_fee)
 -  [Function `fee`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_fee)
 
@@ -252,6 +253,18 @@ Release NFTs that are in the lockup object but not in the list.
 
 
 <pre><code>entry <b>fun</b> <a href="core.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_admin_release_nft">admin_release_nft</a>(signer_ref: &<a href="">signer</a>, metadata: <b>address</b>, <a href="">token</a>: <a href="_Object">object::Object</a>&lt;<a href="_Token">token::Token</a>&gt;)
+</code></pre>
+
+
+
+<a id="0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_admin_reconcile_pool"></a>
+
+## Function `admin_reconcile_pool`
+
+Reconile pool
+
+
+<pre><code>entry <b>fun</b> <a href="core.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_admin_reconcile_pool">admin_reconcile_pool</a>&lt;<a href="core.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_core_RenegadeCoin">RenegadeCoin</a>&gt;(signer_ref: &<a href="">signer</a>, metadata: <b>address</b>, tokens: <a href="">vector</a>&lt;<a href="_Object">object::Object</a>&lt;<a href="_Token">token::Token</a>&gt;&gt;)
 </code></pre>
 
 
