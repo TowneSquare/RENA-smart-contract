@@ -18,6 +18,7 @@
 -  [Function `rena_collection`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_rena_collection)
 -  [Function `staking_object`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_staking_object)
 -  [Function `is_eligible`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_is_eligible)
+-  [Function `stake_time`](#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_stake_time)
 
 
 <pre><code><b>use</b> <a href="">0x1::event</a>;
@@ -233,4 +234,17 @@ Returns whether the token is eligible for staking
 
 <pre><code>#[view]
 <b>public</b> <b>fun</b> <a href="stake.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_is_eligible">is_eligible</a>(user: <b>address</b>, <a href="">token</a>: <b>address</b>): bool
+</code></pre>
+
+
+
+<a id="0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_stake_time"></a>
+
+## Function `stake_time`
+
+Returns the stake time of a token
+
+
+<pre><code>#[view]
+<b>public</b> <b>fun</b> <a href="stake.md#0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05_stake_stake_time">stake_time</a>(user: <b>address</b>, <a href="">token</a>: <b>address</b>): u64
 </code></pre>

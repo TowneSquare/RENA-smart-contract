@@ -210,6 +210,12 @@ module rena::stake {
         let (token, _) = simple_map::remove<address, u64>(&mut mut_stake_info.tokens, &token);
         // transfer the token back to the user
         object::transfer_call(&staking_object_signer(), token, signer::address_of(signer_ref));
+        // if the staker has no more staked tokens, remove the staker
+        let mut_global_info = borrow_global_mut<GlobalInfo>(@rena);
+        let mut_stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut mut_global_info.table, signer::address_of(signer_ref));
+        if (simple_map::length(&mut_stake_info.tokens) == 0) {
+            smart_table::remove<address, StakeInfo>(&mut mut_global_info.table, signer::address_of(signer_ref));
+        };
         // emit the unstaked event
         event::emit(Unstaked { user: signer::address_of(signer_ref), token } );
 
@@ -288,4 +294,13 @@ module rena::stake {
         let token_obj = object::address_to_object<Token>(token);
         if (object::is_owner(token_obj, user) && is_rena(token)) true else false
     }
+
+    #[view]
+    /// Returns the stake time of a token
+    public fun stake_time(user: address, token: address): u64 acquires GlobalInfo {
+        let stake_info = user_stake_info(user);
+        let start_stake_timestamp = *simple_map::borrow<address, u64>(&stake_info.tokens, &token);
+        (timestamp::now_microseconds() - start_stake_timestamp)
+    }
+    
 }
