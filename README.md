@@ -29,3 +29,11 @@ Each function has a detailed description of its parameters and triggers events t
 ### Technical specs
 
 Public [presale module](./presale/doc/presale.md)
+
+## Stake
+
+### Technical specs
+
+- [stake module](./stake/doc/stake.md)
+
+- deployed on testnet: `0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5`
