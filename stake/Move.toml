@@ -4,8 +4,12 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-rena = "0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05"
-rena_collection = "0x42b36fc7193af0e745e5cc2e9c12179fe8ba5197321479675975bbc17b5f63e7"
+# rena = "0x4ed27736e724e403f9b4645ffef0ae86fd149503f45b37c428ffabd7e46e5b05"
+# rena_collection = "0x42b36fc7193af0e745e5cc2e9c12179fe8ba5197321479675975bbc17b5f63e7"
+
+# TODO: TESTNET ONLY! DELETE BEFORE DEPLOYMENT
+rena = "_"
+rena_collection = "0x7c25742cd2cfd0c2bd171b775edcda3e89e4af9d7eedd13312afddcc189a495f"
 
 [dev-addresses]
 
