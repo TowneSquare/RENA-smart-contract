@@ -8,7 +8,7 @@ authors = []
 # rena_collection = "0x42b36fc7193af0e745e5cc2e9c12179fe8ba5197321479675975bbc17b5f63e7"
 
 # TODO: TESTNET ONLY! DELETE BEFORE DEPLOYMENT
-rena = "_"
+rena = "0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5"
 rena_collection = "0x7c25742cd2cfd0c2bd171b775edcda3e89e4af9d7eedd13312afddcc189a495f"
 
 [dev-addresses]

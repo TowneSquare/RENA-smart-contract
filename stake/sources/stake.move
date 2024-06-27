@@ -2,7 +2,7 @@
     Stake Rena Token
 
     TODOs: 
-        - 
+        - should view functions return option?
 */
 
 module rena::stake {
@@ -12,15 +12,9 @@ module rena::stake {
     use aptos_std::smart_table::{Self, SmartTable};
     use aptos_std::simple_map::{Self, SimpleMap};
     use aptos_token_objects::token::{Self, Token};
-    use aptos_token_objects::collection::{Collection};
-    use std::debug;
     use std::event;
     use std::signer; 
     use std::vector;
-
-    // ---------
-    // Constants
-    // ---------
 
     // ------
     // Errors
@@ -166,26 +160,42 @@ module rena::stake {
         assert_token_not_staked(signer_addr, token);
         // add token to the staked tokens
         if (!staker_exists(signer_addr)) {
-            let tokens = simple_map::new<address, u64>();
-            simple_map::add<address, u64>(&mut tokens, token, timestamp::now_microseconds());
-            // add a new entry for the staker
-            let global_info = borrow_global_mut<GlobalInfo>(@rena);
-            smart_table::add<address, StakeInfo>(
-                &mut global_info.table,
-                signer_addr,
-                StakeInfo {
-                    tokens,
-                    accumulated_time: 0
-                }
-            );
+            stake_token_new_staker(signer_ref, token);
         } else {
-            let stake_info = user_stake_info(signer_addr);
-            simple_map::add<address, u64>(&mut stake_info.tokens, token, timestamp::now_microseconds());
+            stake_token_existing_staker(signer_ref, token);
         };
         // transfer the token to the staking object
         object::transfer_call(signer_ref, token, obj());
         // emit the staked event
         event::emit(Staked { user: signer_addr, token } );
+
+        token
+    }
+
+    /// Internal function to stake a token assuming the staker does not exist
+    inline fun stake_token_new_staker(signer_ref: &signer, token: address): address acquires GlobalInfo {
+        let tokens = simple_map::new<address, u64>();
+        simple_map::add<address, u64>(&mut tokens, token, timestamp::now_seconds());
+        // add a new entry for the staker
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        smart_table::add<address, StakeInfo>(
+            &mut global_info.table,
+            signer::address_of(signer_ref),
+            StakeInfo {
+                tokens,
+                accumulated_time: 0
+            }
+        );
+
+        token
+    }
+
+    /// Internal function to stake a token assuming the staker exists
+    inline fun stake_token_existing_staker(signer_ref: &signer, token: address): address acquires GlobalInfo {
+        // let stake_info = user_stake_info(signer::address_of(signer_ref));
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, signer::address_of(signer_ref));
+        simple_map::add<address, u64>(&mut stake_info.tokens, token, timestamp::now_seconds());
 
         token
     }
@@ -204,9 +214,11 @@ module rena::stake {
     /// Helper function to unstake one token
     inline fun unstake_one_token(signer_ref: &signer, token: address): address acquires GlobalInfo {
         assert_token_staked(signer::address_of(signer_ref), token);
-        let stake_info = user_stake_info(signer::address_of(signer_ref));
+        // let stake_info = user_stake_info(signer::address_of(signer_ref));
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, signer::address_of(signer_ref));
         let stake_timestamp = *simple_map::borrow<address, u64>(&stake_info.tokens, &token);
-        let accumulated_time = timestamp::now_microseconds() - stake_timestamp;
+        let accumulated_time = timestamp::now_seconds() - stake_timestamp;
         // update the accumulated time
         let mut_global_info = borrow_global_mut<GlobalInfo>(@rena);
         let mut_stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut mut_global_info.table, signer::address_of(signer_ref));
@@ -215,23 +227,10 @@ module rena::stake {
         let (token, _) = simple_map::remove<address, u64>(&mut mut_stake_info.tokens, &token);
         // transfer the token back to the user
         object::transfer_call(&staking_object_signer(), token, signer::address_of(signer_ref));
-        // if the staker has no more staked tokens, remove the staker
-        let mut_global_info = borrow_global_mut<GlobalInfo>(@rena);
-        let mut_stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut mut_global_info.table, signer::address_of(signer_ref));
-        // if (simple_map::length(&mut_stake_info.tokens) == 0) {
-        //     smart_table::remove<address, StakeInfo>(&mut mut_global_info.table, signer::address_of(signer_ref));
-        // };
         // emit the unstaked event
         event::emit(Unstaked { user: signer::address_of(signer_ref), token } );
 
         token
-    }
-
-    /// Get Stake Info of an input address
-    inline fun user_stake_info(staker_addr: address): StakeInfo acquires GlobalInfo {
-        assert_staker_exists(staker_addr);
-        let global_info = borrow_global_mut<GlobalInfo>(@rena);
-        *smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, staker_addr)
     }
 
     /// Checks if the token is rena
@@ -244,8 +243,13 @@ module rena::stake {
 
     /// Checks if a token is staked
     inline fun is_staked(staker_addr: address, token_addr: address): bool {
-        let stake_info = user_stake_info(staker_addr);
-        simple_map::contains_key<address, u64>(&stake_info.tokens, &token_addr)
+        // let stake_info = user_stake_info(staker_addr);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, staker_addr);
+        if (
+            simple_map::contains_key<address, u64>(&mut stake_info.tokens, &token_addr)
+            && object::is_owner(object::address_to_object<Token>(token_addr), obj())
+        ) true else false
     }
 
     /// Gets the object holding the staked tokens
@@ -262,7 +266,7 @@ module rena::stake {
 
     /// Check if a staker exists
     inline fun staker_exists(staker_addr: address): bool {
-        let global_info = borrow_global<GlobalInfo>(@rena);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
         smart_table::contains<address, StakeInfo>(&global_info.table, staker_addr)
     }
 
@@ -272,7 +276,11 @@ module rena::stake {
 
     #[view]
     /// Get the stake info of the caller
-    public fun stake_info(addr: address): StakeInfo acquires GlobalInfo { user_stake_info(addr) }
+    public fun stake_info(addr: address): StakeInfo acquires GlobalInfo { 
+        // *user_stake_info(addr) 
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        *smart_table::borrow<address, StakeInfo>(&global_info.table, addr)
+    }
 
     #[view]
     /// Get the staked tokens of the staker
@@ -304,9 +312,11 @@ module rena::stake {
     #[view]
     /// Returns the stake time of a token
     public fun stake_time(user: address, token: address): u64 acquires GlobalInfo {
-        let stake_info = user_stake_info(user);
+        // let stake_info = user_stake_info(user);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, user);
         let start_stake_timestamp = *simple_map::borrow<address, u64>(&stake_info.tokens, &token);
-        (timestamp::now_microseconds() - start_stake_timestamp)
+        (timestamp::now_seconds() - start_stake_timestamp)
     }
 
     // ----------
@@ -321,9 +331,11 @@ module rena::stake {
     use std::string::{Self, String};
     #[test_only]
     use aptos_token_objects::collection;
+    #[test_only]
+    use std::debug;
 
     #[test_only]
-    fun setup_test(std: &signer, rena: &signer, creator: &signer, staker: &signer): (ConstructorRef, address) {
+    fun setup_test(std: &signer, rena: &signer, creator: &signer, staker: &signer): (ConstructorRef, vector<address>) {
         timestamp::set_time_has_started_for_testing(std);
         init_module(rena);
         let name = string::utf8(b"collection name");
@@ -355,28 +367,205 @@ module rena::stake {
         );
 
         object::transfer_call(creator, object::address_from_constructor_ref(&token_one), @0x222);
+        object::transfer_call(creator, object::address_from_constructor_ref(&token_two), @0x222);
 
-        (constructor, object::address_from_constructor_ref(&token_one))
+        let tokens = vector[
+            object::address_from_constructor_ref(&token_one),
+            object::address_from_constructor_ref(&token_two)
+        ];
+
+        (constructor, tokens)
     }
 
     #[test(std= @0x1, rena = @rena, creator = @0x111, staker = @0x222)]
+    /// Common lifecycle of staking and unstaking a token
     fun test_stake(std: &signer, rena: &signer, creator: &signer, staker: &signer) acquires GlobalInfo {
-        let (collection_constructor, token_addr) = setup_test(std, rena, creator, staker);
-        assert!(is_eligible(@0x222, token_addr), 1);
+        let (_ /*collection_constructor*/, tokens_addr) = setup_test(std, rena, creator, staker);
+        let token_one_addr = *vector::borrow(&tokens_addr, 0);
+        let token_two_addr = *vector::borrow(&tokens_addr, 1);
+
+        // stake and unstake token one
+        assert!(is_eligible(@0x222, token_one_addr), 1);
         assert!(!staker_exists(@0x222), 2);
-        stake(staker, vector[token_addr]);
+        stake(staker, vector[token_one_addr]);
         let global_info = borrow_global_mut<GlobalInfo>(@rena);
         assert!(smart_table::length(&global_info.table) == 1, 2);
         let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, @0x222);
         assert!(simple_map::length(&stake_info.tokens) == 1, 1);
         // debug::print<u64>(&simple_map::length(&stake_info.tokens));
-        let stake_info = user_stake_info(@0x222);
-        assert!(simple_map::length(&stake_info.tokens) == 1, 3);
-        
-        unstake(staker, vector[token_addr]);
+        // let stake_info = user_stake_info(@0x222);
         let global_info = borrow_global<GlobalInfo>(@rena);
-        assert!(smart_table::length(&global_info.table) == 0, 4);
-        assert!(!staker_exists(@0x222), 5);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 3);
+        assert!(is_staked(@0x222, token_one_addr), 4);
+        
+        unstake(staker, vector[token_one_addr]);
+        // let global_info = borrow_global<GlobalInfo>(@rena);
+        // assert!(smart_table::length(&global_info.table) == 0, 4);
+        // let stake_info = borrow_global_mut<GlobalInfo>(@rena);
+        // assert!(smart_table::length(&stake_info.table) == 0, 5);
+        // assert!(!staker_exists(@0x222), 5);
+
+        // stake and unstake token two
+        assert!(is_eligible(@0x222, token_two_addr), 1);
+        // assert!(!staker_exists(@0x222), 2);
+        stake(staker, vector[token_two_addr]);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 6);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 7);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 8);
+        
+        unstake(staker, vector[token_two_addr]);
+        // let global_info = borrow_global<GlobalInfo>(@rena);
+        // assert!(smart_table::length(&global_info.table) == 0, 9);
+        // let stake_info = borrow_global_mut<GlobalInfo>(@rena);
+        // assert!(smart_table::length(&stake_info.table) == 0, 10);
+        // assert!(!staker_exists(@0x222), 10);
     }
+
+    #[test(std= @0x1, rena = @rena, creator = @0x111, staker = @0x222)]
+    /// Test view functions
+    fun test_view_functions(std: &signer, rena: &signer, creator: &signer, staker: &signer) acquires GlobalInfo {
+        let (_ /*collection_constructor*/, tokens_addr) = setup_test(std, rena, creator, staker);
+        let token_one_addr = *vector::borrow(&tokens_addr, 0);
+        let token_two_addr = *vector::borrow(&tokens_addr, 1);
+
+        // stake token one
+        assert!(is_eligible(@0x222, token_one_addr), 1);
+        assert!(!staker_exists(@0x222), 2);
+        stake(staker, vector[token_one_addr]);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 3);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 4);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+
+        // move forward in time with 10 seconds
+        timestamp::fast_forward_seconds(10);
+
+        // view functions
+        stake_info(@0x222);
+        // debug::print<SimpleMap<address, u64>>(&staked_tokens(@0x222));
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 5);
+        // debug::print<u64>(&stake_time(@0x222, token_one_addr));
+        assert!(stake_time(@0x222, token_one_addr) == 10, 7);
+        assert!(is_staked(@0x222, token_one_addr), 6);
+        // accumlated time updates only when unstaking
+        assert!(accumulated_stake_time(@0x222) == 0, 10);
+        assert!(is_eligible(@0x222, token_two_addr), 11);
+
+        // unstake
+        unstake(staker, vector[token_one_addr]);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 12);
+        assert!(accumulated_stake_time(@0x222) == 10, 14);
+    }
+
+    #[test(std= @0x1, rena = @rena, creator = @0x111, staker = @0x222)]
+    /// Test staking one token and then staking another token
+    fun test_stake_multiple_one_by_one(std: &signer, rena: &signer, creator: &signer, staker: &signer) acquires GlobalInfo {
+        let (_ /*collection_constructor*/, tokens_addr) = setup_test(std, rena, creator, staker);
+        let token_one_addr = *vector::borrow(&tokens_addr, 0);
+        let token_two_addr = *vector::borrow(&tokens_addr, 1);
+
+        // stake token one
+        assert!(is_eligible(@0x222, token_one_addr), 1);
+        assert!(!staker_exists(@0x222), 2);
+        stake(staker, vector[token_one_addr]);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 3);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 4);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 5);
+        // debug::print<SimpleMap<address, u64>>(&stake_info.tokens);
+
+        // stake token two
+        assert!(is_eligible(@0x222, token_two_addr), 1);
+        assert!(staker_exists(@0x222), 2);
+        stake(staker, vector[token_two_addr]);
+        assert!(staker_exists(@0x222), 7);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 6);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, @0x222);
+        // debug::print<address>(&token_one_addr);
+        // debug::print<address>(&token_two_addr);
+        // debug::print<SimpleMap<address, u64>>(&stake_info.tokens);
+        assert!(simple_map::length(&stake_info.tokens) == 2, 7);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 2, 8);
+
+    }
+
+    #[test(std= @0x1, rena = @rena, creator = @0x111, staker = @0x222)]
+    /// Test staking both tokens, unstaking one token and restaking it
+    fun test_restake(std: &signer, rena: &signer, creator: &signer, staker: &signer) acquires GlobalInfo {
+        let (_ /*collection_constructor*/, tokens_addr) = setup_test(std, rena, creator, staker);
+        let token_one_addr = *vector::borrow(&tokens_addr, 0);
+        let token_two_addr = *vector::borrow(&tokens_addr, 1);
+        // stake both tokens, unstake one token and restake it
+        assert!(is_eligible(@0x222, token_one_addr), 1);
+        assert!(is_eligible(@0x222, token_two_addr), 2);
+        assert!(!staker_exists(@0x222), 3);
+        stake(staker, vector[token_one_addr, token_two_addr]);
+
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 4);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        // debug::print<address>(&token_one_addr);
+        // debug::print<address>(&token_two_addr);
+        // debug::print<SimpleMap<address, u64>>(&stake_info.tokens);
+        assert!(simple_map::length(&stake_info.tokens) == 2, 5);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 2, 6);
+
+        unstake(staker, vector[token_one_addr]);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 7);
+        assert!(staker_exists(@0x222), 8);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 9);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 1, 10);
+
+        stake(staker, vector[token_one_addr]);
+        let global_info = borrow_global_mut<GlobalInfo>(@rena);
+        assert!(smart_table::length(&global_info.table) == 1, 11);
+        let stake_info = smart_table::borrow_mut<address, StakeInfo>(&mut global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 2, 12);
+        // debug::print<u64>(&simple_map::length(&stake_info.tokens));
+        // let stake_info = user_stake_info(@0x222);
+        let global_info = borrow_global<GlobalInfo>(@rena);
+        let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, @0x222);
+        assert!(simple_map::length(&stake_info.tokens) == 2, 13);
+
+        unstake(staker, vector[token_one_addr, token_two_addr]);
+        // let global_info = borrow_global<GlobalInfo>(@rena);
+        // assert!(smart_table::length(&global_info.table) == 0, 14);
+        // assert!(!staker_exists(@0x222), 15);
+    }
+
+    // TODO: (if needed) test accumulated time, basic lifecycle already tested
     
 }
