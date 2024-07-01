@@ -19,6 +19,8 @@
 -  [Function `staking_object`](#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_staking_object)
 -  [Function `is_eligible`](#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_is_eligible)
 -  [Function `stake_time`](#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_time)
+-  [Function `stake_points`](#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_points)
+-  [Function `stake_points_vector`](#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_points_vector)
 
 
 <pre><code><b>use</b> <a href="">0x1::event</a>;
@@ -96,6 +98,16 @@ The signer is not the owner of the token
 
 
 
+<a id="0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_DAY"></a>
+
+Day in seconds
+
+
+<pre><code><b>const</b> <a href="stake.md#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_DAY">DAY</a>: u64 = 86400;
+</code></pre>
+
+
+
 <a id="0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_EALREADY_STAKED"></a>
 
 The token is already staked
@@ -132,6 +144,16 @@ The staker does not exist
 
 
 <pre><code><b>const</b> <a href="stake.md#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_ENOT_STAKER">ENOT_STAKER</a>: u64 = 4;
+</code></pre>
+
+
+
+<a id="0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_POINTS_PER_DAY"></a>
+
+Points per day
+
+
+<pre><code><b>const</b> <a href="stake.md#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_POINTS_PER_DAY">POINTS_PER_DAY</a>: u64 = 10;
 </code></pre>
 
 
@@ -247,4 +269,30 @@ Returns the stake time of a token
 
 <pre><code>#[view]
 <b>public</b> <b>fun</b> <a href="stake.md#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_time">stake_time</a>(user: <b>address</b>, <a href="">token</a>: <b>address</b>): u64
+</code></pre>
+
+
+
+<a id="0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_points"></a>
+
+## Function `stake_points`
+
+Returns the stake points of a token
+
+
+<pre><code>#[view]
+<b>public</b> <b>fun</b> <a href="stake.md#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_points">stake_points</a>(user: <b>address</b>, <a href="">token</a>: <b>address</b>): u64
+</code></pre>
+
+
+
+<a id="0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_points_vector"></a>
+
+## Function `stake_points_vector`
+
+Returns the stake points of each token in the given vector
+
+
+<pre><code>#[view]
+<b>public</b> <b>fun</b> <a href="stake.md#0xce06dd72899bc314cf458ab1c6ae47011df6ba62176135c6d78ef6fafb38bdd5_stake_stake_points_vector">stake_points_vector</a>(user: <b>address</b>, tokens: <a href="">vector</a>&lt;<b>address</b>&gt;): <a href="_SimpleMap">simple_map::SimpleMap</a>&lt;<b>address</b>, u64&gt;
 </code></pre>

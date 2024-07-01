@@ -30,6 +30,10 @@ module rena::stake {
     const ENOT_STAKED: u64 = 3;
     /// The staker does not exist
     const ENOT_STAKER: u64 = 4;
+    /// Day in seconds
+    const DAY: u64 = 86400;
+    /// Points per day
+    const POINTS_PER_DAY: u64 = 10;
 
     // ---------
     // Resources
@@ -317,6 +321,27 @@ module rena::stake {
         let stake_info = smart_table::borrow<address, StakeInfo>(&global_info.table, user);
         let start_stake_timestamp = *simple_map::borrow<address, u64>(&stake_info.tokens, &token);
         (timestamp::now_seconds() - start_stake_timestamp)
+    }
+
+    #[view]
+    /// Returns the stake points of a token
+    public fun stake_points(user: address, token: address): u64 acquires GlobalInfo {
+        // assert token is staked
+        assert!(is_staked(user, token), ENOT_STAKED);
+        let stake_time = stake_time(user, token);
+        (stake_time / DAY) * POINTS_PER_DAY
+    }
+
+    #[view]
+    /// Returns the stake points of each token in the given vector
+    public fun stake_points_vector(user: address, tokens: vector<address>): SimpleMap<address, u64> acquires GlobalInfo {
+        let stake_points = simple_map::new<address, u64>();
+        for (i in 0..vector::length(&tokens)) {
+            let token = *vector::borrow(&tokens, i);
+            simple_map::add<address, u64>(&mut stake_points, token, stake_points(user, token));
+        };
+
+        stake_points
     }
 
     // ----------
