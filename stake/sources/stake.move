@@ -1,8 +1,5 @@
 /*
     Stake Rena Token
-
-    TODOs: 
-        - should view functions return option?
 */
 
 module rena::stake {
